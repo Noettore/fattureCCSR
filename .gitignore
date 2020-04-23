@@ -25,3 +25,7 @@ _testmain.go
 .settings
 *.code-workspace
 .vscode
+
+# bin dir
+bin
+bin/*

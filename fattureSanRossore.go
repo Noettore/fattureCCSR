@@ -174,14 +174,17 @@ func mergeInvoices(files []string) string {
 }
 
 func openPDF(fileName string) {
+	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
-		cmd := exec.Command("cmd", "/C start "+fileName)
-		err := cmd.Run()
-		if err != nil {
-			log.Fatalf("Impossibile aprire il pdf con le fatture unite: %v\n", err)
-		}
+		cmd = exec.Command("cmd", "/C start "+fileName)
+
+	} else {
+		cmd = exec.Command("xdg-open", fileName)
 	}
-	//TODO for Linux
+	err := cmd.Run()
+	if err != nil {
+		log.Fatalf("Impossibile aprire il pdf con le fatture unite: %v\n", err)
+	}
 }
 
 func main() {
