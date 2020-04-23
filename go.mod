@@ -1,4 +1,4 @@
-module github.com/Noettore/ccsrReportDownloader
+module github.com/Noettore/fattureSanRossore
 
 go 1.14
 
