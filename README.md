@@ -36,10 +36,10 @@ Follow the instruction in the [manual](manual/Manuale.md) (only in italian)
 
 ## Dependencies
 
-- [github.com/extrame/xls](github.com/extrame/xls)
-- [github.com/pdfcpu/pdfcpu](github.com/pdfcpu/pdfcpu/pkg/api)
-- [github.com/sqweek/dialog](github.com/sqweek/dialog)
-- [mvdan.cc/xurls](mvdan.cc/xurls/v2)
+- [github.com/extrame/xls](https://github.com/extrame/xls)
+- [github.com/pdfcpu/pdfcpu](https://github.com/pdfcpu/pdfcpu/pkg/api)
+- [github.com/sqweek/dialog](https://github.com/sqweek/dialog)
+- [mvdan.cc/xurls](https://mvdan.cc/xurls/v2)
 
 ## Author
 
