@@ -1,7 +1,5 @@
 # fattureSanRossore
 
-Utility in Go per effettuare il bulk-download delle fatture emesse conto terzi e listate in un file xls generato dal portale dalle Casa di Cura San Rossore.
-
 [![MIT License](https://img.shields.io/badge/license-MIT-blue)](LICENSE.md) [![GitHub code size in bytes](https://img.shields.io/github/languages/code-size/Noettore/fattureSanRossore)](#) [![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/Noettore/fattureSanRossore)](#) [![GitHub last commit](https://img.shields.io/github/last-commit/Noettore/fattureSanRossore)](https://github.com/Noettore/fattureSanRossore/commit/master)
 
 ## Getting Started
