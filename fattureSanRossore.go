@@ -2,8 +2,8 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	"time"
 
 	"github.com/extrame/xls"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -19,17 +18,23 @@ import (
 	"mvdan.cc/xurls/v2"
 )
 
-var tmp string = os.TempDir()
+var tmpDir string
+var outDir string
+var mw io.Writer
+var logPath string
+var exitWithError bool
 
 func getInvoiceIDs(fileName string) []string {
 	xlFile, err := xls.Open(fileName, "utf-8")
 	if err != nil {
-		log.Fatalf("Impossibile aprire il file xls: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile aprire il file xls: %v\n", err)
 	}
 
 	sheet := xlFile.GetSheet(0)
 	if sheet == nil {
-		log.Fatalf("Impossibile aprire il foglio nell'xls: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile aprire il foglio nell'xls: %v\n", err)
 	}
 
 	var invoiceIDs []string
@@ -49,28 +54,28 @@ func convertXLStoFODS(fileName string) string {
 	if runtime.GOOS == "windows" {
 		sofficePath = filepath.FromSlash("C:/Program Files/LibreOffice/program/soffice.exe")
 	}
-	cmd := exec.Command(sofficePath, "--convert-to", "fods", "--outdir", tmp, fileName)
+	cmd := exec.Command(sofficePath, "--convert-to", "fods", "--outdir", outDir, fileName)
+	cmd.Stdout = mw
+	cmd.Stderr = mw
 	err := cmd.Run()
 	if err != nil {
-		log.Fatalf("Impossibile convertire l'XLS in FODS: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile convertire l'XLS in FODS: %v\n", err)
 	}
-	return (tmp + "/" + strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)) + ".fods")
+	return (outDir + "/" + strings.TrimSuffix(filepath.Base(fileName), filepath.Ext(fileName)) + ".fods")
 }
 
 func getInvoiceURLs(fileName string) []string {
 	fods := convertXLStoFODS(fileName)
 	f, err := os.Open(fods)
 	if err != nil {
-		log.Fatalf("Impossibile aprire il FODS convertito: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile aprire il FODS convertito: %v\n", err)
 	}
 	defer func() {
 		err = f.Close()
 		if err != nil {
 			log.Printf("Impossibile chiudere il file %v: %v\n", fods, err)
-		}
-		err = os.Remove(fods)
-		if err != nil {
-			log.Printf("Impossibile eliminare il file temporaneo %v: %v\n", fods, err)
 		}
 	}()
 	var invoiceURLs []string
@@ -84,7 +89,8 @@ func getInvoiceURLs(fileName string) []string {
 		}
 	}
 	if err := s.Err(); err != nil {
-		log.Fatalf("Impossibile leggere dal file %v: %v\n", fods, err)
+		exitWithError = true
+		log.Panicf("Impossibile leggere dal file %v: %v\n", fods, err)
 	}
 	return invoiceURLs
 }
@@ -92,11 +98,13 @@ func getInvoiceURLs(fileName string) []string {
 func checkFile(fileName string) string {
 	_, err := os.Stat(fileName)
 	if err != nil {
-		log.Fatalf("Errore nell'apertura del file %v: %v\n", fileName, err)
+		exitWithError = true
+		log.Panicf("Errore nell'apertura del file %v: %v\n", fileName, err)
 	}
 	absPath, err := filepath.Abs(fileName)
 	if err != nil {
-		log.Fatalf("Impossibile recuperare il percorso assoluto del file %v: %v\n", fileName, err)
+		exitWithError = true
+		log.Panicf("Impossibile recuperare il percorso assoluto del file %v: %v\n", fileName, err)
 	}
 	return absPath
 }
@@ -118,24 +126,43 @@ func downloadFile(fileName string, url string) error {
 	return err
 }
 
-func downloadInvoices(ids []string, urls []string) []string {
-	if len(ids) != len(urls) {
-		log.Fatalf("Il numero di fatture da scaricare non corrisponde al numero di URL individuati nel file")
-	}
+func createTmpDir() string {
+	dir := filepath.FromSlash(tmpDir + "/fattureSanRossore")
 
-	dir := filepath.FromSlash(tmp + "/pdfInvoices" + "_" + time.Now().Format("20060102"))
+	if _, err := os.Stat(dir); err == nil {
+		log.Printf("Pulizia della directory temporanea pre-esistente")
+		err := os.RemoveAll(dir)
+		if err != nil {
+			exitWithError = true
+			log.Panicf("Impossibile eliminare la directory temporanea pre-esistente %v: %v\n", dir, err)
+		}
+	} else if !os.IsNotExist(err) {
+		exitWithError = true
+		log.Panicf("Impossibile eseguire lo stat sulla directory temporanea %v: %v\n", dir, err)
+	}
 	err := os.Mkdir(dir, os.ModePerm)
 	if err != nil {
-		log.Fatalf("Impossibile creare la directory temporanea di salvataggio %v: %v\n", dir, err)
+		exitWithError = true
+		log.Panicf("Impossibile creare la directory temporanea di salvataggio %v: %v\n", dir, err)
+	}
+
+	return dir
+}
+
+func downloadInvoices(ids []string, urls []string) []string {
+	if len(ids) != len(urls) {
+		exitWithError = true
+		log.Panicf("Il numero di fatture da scaricare non corrisponde al numero di URL individuati nel file")
 	}
 
 	downloadCount := 0
 	var downloadedFiles []string
+	log.Printf("Inizio il download di %d fatture\n", len(ids))
 	for i := 0; i < len(ids); i++ {
-		out := filepath.FromSlash(dir + "/" + ids[i] + ".pdf")
+		out := filepath.FromSlash(outDir + "/" + ids[i] + ".pdf")
 
-		fmt.Printf("Scaricamento di %v\n", ids[i])
-		err = downloadFile(out, urls[i])
+		log.Printf("Scaricamento di %v\n", ids[i])
+		err := downloadFile(out, urls[i])
 		if err != nil {
 			log.Printf("Impossibile scaricare il file %v: %v\n", urls[i], err)
 		} else {
@@ -143,32 +170,23 @@ func downloadInvoices(ids []string, urls []string) []string {
 			downloadedFiles = append(downloadedFiles, out)
 		}
 	}
-	fmt.Printf("Scaricate %d/%d fatture\n", downloadCount, len(ids))
+	log.Printf("Scaricate %d/%d fatture\n", downloadCount, len(ids))
 	return downloadedFiles
 }
 
 func mergeInvoices(files []string) string {
 	out, err := dialog.File().Filter("PDF files", "pdf").Title("Scegli dove salvare le fatture unite").Save()
 	if err != nil {
-		log.Fatalf("Impossibile recuperare il file selezionato: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile recuperare il file selezionato: %v\n", err)
 	}
 	if filepath.Ext(out) == "" {
 		out += ".pdf"
 	}
 	err = api.MergeFile(files, out, nil)
 	if err != nil {
-		log.Fatalf("Impossibile unire i pdf: %v\nFatture singole non rimosse\n", err)
-	}
-	dir := filepath.Dir(files[0])
-	for _, file := range files {
-		err = os.Remove(file)
-		if err != nil {
-			log.Printf("Impossibile eliminare la fattura singola %v: %v\n", file, err)
-		}
-	}
-	err = os.Remove(dir)
-	if err != nil {
-		log.Printf("Impossibile eliminare la directory temporanea %v: %v\n", dir, err)
+		exitWithError = true
+		log.Panicf("Impossibile unire i pdf: %v\nFatture singole non rimosse\n", err)
 	}
 	return out
 }
@@ -181,21 +199,69 @@ func openPDF(fileName string) {
 	} else {
 		cmd = exec.Command("xdg-open", fileName)
 	}
-	err := cmd.Run()
+	cmd.Stdout = mw
+	cmd.Stderr = mw
+	err := cmd.Start()
 	if err != nil {
-		log.Fatalf("Impossibile aprire il pdf con le fatture unite: %v\n", err)
+		exitWithError = true
+		log.Panicf("Impossibile aprire il pdf con le fatture unite: %v\n", err)
+	}
+}
+
+func cleanTmpDir() {
+	files, err := ioutil.ReadDir(outDir)
+	if err != nil {
+		exitWithError = true
+		log.Panicf("Impossibile recuperare la lista di file creati nella directory temporanea: %v\n", err)
+	}
+	for _, file := range files {
+		err = os.Remove(filepath.FromSlash(outDir + "/" + file.Name()))
+		if err != nil {
+			log.Printf("Impossibile eliminare la fattura singola %v: %v\n", file, err)
+		}
+	}
+	err = os.Remove(outDir)
+	if err != nil {
+		log.Printf("Impossibile eliminare la directory temporanea %v: %v\n", outDir, err)
 	}
 }
 
 func main() {
-	var fileName string
-
+	exitWithError = false
 	args := os.Args
+	tmpDir = os.TempDir()
+
+	if runtime.GOOS == "linux" {
+		logPath = tmpDir + "/log_fattureSanRossore.log"
+	} else {
+		logPath = filepath.FromSlash(tmpDir + "/log_fattureSanRossore.txt")
+	}
+	logFile, err := os.OpenFile(filepath.FromSlash(logPath), os.O_CREATE|os.O_TRUNC|os.O_RDWR, 0666)
+	if err != nil {
+		exitWithError = true
+		log.Panicf("Impossibile creare il file di log: %v\n", err)
+	}
+	mw = io.MultiWriter(os.Stderr, logFile)
+	log.SetOutput(mw)
+
+	defer func() {
+		if !exitWithError {
+			cleanTmpDir()
+		} else {
+			log.Println("I file temporanei non sono stati eliminati per poterli riesaminare")
+		}
+		log.Printf("Log file salvato in %v\n", logPath)
+	}()
+
+	outDir = createTmpDir()
+
+	var fileName string
 	if len(args) < 2 {
 		var err error
 		fileName, err = dialog.File().Filter("XLS files", "xls").Load()
 		if err != nil {
-			log.Fatalf("Impossibile recuperare il file selezionato: %v\n", err)
+			exitWithError = true
+			log.Panicf("Impossibile recuperare il file selezionato: %v\n", err)
 		}
 	} else {
 		fileName = args[1]
@@ -207,5 +273,4 @@ func main() {
 	dlFiles := downloadInvoices(IDs, URLs)
 	pdf := mergeInvoices(dlFiles)
 	openPDF(pdf)
-
 }
