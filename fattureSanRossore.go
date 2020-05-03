@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 
 	"github.com/extrame/xls"
 	"github.com/pdfcpu/pdfcpu/pkg/api"
@@ -111,18 +112,22 @@ func checkFile(fileName string) string {
 
 func downloadFile(fileName string, url string) error {
 	resp, err := http.Get(url)
+
 	if err != nil {
+		resp.Body.Close()
 		return err
 	}
-	defer resp.Body.Close()
 
 	out, err := os.Create(fileName)
 	if err != nil {
+		out.Close()
 		return err
 	}
-	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
+	out.Close()
+	resp.Body.Close()
+
 	return err
 }
 
@@ -155,23 +160,39 @@ func downloadInvoices(ids []string, urls []string) []string {
 		log.Panicf("Il numero di fatture da scaricare non corrisponde al numero di URL individuati nel file")
 	}
 
+	wg := sync.WaitGroup{}
+	sem := make(chan bool, 30)
+	mu := sync.Mutex{}
+	invoiceNum := len(ids)
 	downloadCount := 0
-	var downloadedFiles []string
-	log.Printf("Inizio il download di %d fatture\n", len(ids))
-	for i := 0; i < len(ids); i++ {
-		out := filepath.FromSlash(outDir + "/" + ids[i] + ".pdf")
+	downloadedFiles := make([]string, invoiceNum)
 
-		log.Printf("Scaricamento di %v\n", ids[i])
-		err := downloadFile(out, urls[i])
-		if err != nil {
-			log.Printf("Impossibile scaricare il file %v: %v\n", urls[i], err)
-		} else {
-			downloadCount++
-			downloadedFiles = append(downloadedFiles, out)
-		}
+	log.Printf("Inizio il download di %d fatture\n", invoiceNum)
+	for i := 0; i < invoiceNum; i++ {
+		id := ids[i]
+		url := urls[i]
+		out := filepath.FromSlash(outDir + "/" + id + ".pdf")
+
+		wg.Add(1)
+		go func(i int) {
+			sem <- true
+			log.Printf("Scaricamento di %v\n", id)
+			err := downloadFile(out, url)
+			if err != nil {
+				log.Printf("Impossibile scaricare il file %v: %v\n", url, err)
+			} else {
+				downloadedFiles[i] = out
+				mu.Lock()
+				downloadCount++
+				mu.Unlock()
+			}
+			<-sem
+			wg.Done()
+		}(i)
 	}
-	log.Printf("Scaricate %d/%d fatture\n", downloadCount, len(ids))
-	return downloadedFiles
+	wg.Wait()
+	log.Printf("Scaricate %d/%d fatture\n", downloadCount, invoiceNum)
+	return downloadedFiles[:downloadCount]
 }
 
 func mergeInvoices(files []string) string {
