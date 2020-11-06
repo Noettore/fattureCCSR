@@ -5,27 +5,15 @@
 *.so
 
 
-# Architecture specific extensions/prefixes
-*.[568vq]
-[568vq].out
-
-*.cgo1.go
-*.cgo2.c
-_cgo_defun.c
-_cgo_gotypes.go
-_cgo_export.*
-
-_testmain.go
-
-*.exe
-*.test
-*.prof
-
 # ---> VisualStudioCode
 .settings
 *.code-workspace
 .vscode
 
-# bin dir
+# Directories and files
 bin
 bin/*
+.ipynb_checkpoints
+.ipynb_checkpoints/*
+*.csv
+*.ipynb
