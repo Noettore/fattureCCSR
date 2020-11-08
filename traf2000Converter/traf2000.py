@@ -1,12 +1,15 @@
 ###### -*- coding: utf-8 -*-
 import sys
 import os
+import datetime
 import csv
+import xml.etree.ElementTree
 import unidecode
 import easygui
 
 fatture = dict()
-fattureFile = easygui.fileopenbox(msg="Scegli il .csv o .xml contenente le informazioni sulle fatture da importare", title="Importa le fatture", default="*.csv")
+
+fattureFile = easygui.fileopenbox(msg="Scegli il .csv o .xml contenente le informazioni sulle fatture da importare", title="Importa le fatture", filetypes=["*.csv", "*.xml"])
 if fattureFile == None:
     sys.exit("ERROR: No input file selected!")
 elif type(fattureFile) == list:
@@ -20,37 +23,83 @@ if traf2000OutputFile == None:
 if fattureFileExtension == ".csv":
     with open(fattureFile, newline="") as fileCsv:
         lettore = csv.reader(fileCsv, delimiter=",")
+
         for i in range(4):
             next(lettore)
+
         for linea in lettore:
             if len(linea) == 0:
                 break
             numFattura = linea[1]
+            importo = int(linea[15].replace("€", "").replace(",", "").replace(".", "").replace("(", "").replace(")", ""))
             if numFattura not in fatture:
                 fattura = {
                     "numFattura": numFattura,
                     "tipoFattura": linea[8],
-                    "dataFattura": linea[2],
+                    "dataFattura": linea[2].replace("/", ""),
                     "ragioneSociale": unidecode.unidecode(linea[6] + " " + " ".join(linea[5].split(" ")[0:2])),
                     "posDivide": str(len(linea[6]) + 1),
                     "cf": linea[7],
                     "importoTotale": 0,
+                    "ritenutaAcconto": 0,
+                    "righe": dict()
                 }
-                if linea[14] == "Ritenuta d'acconto":
-                    fattura["ritenutaAcconto"] = linea[15]
-                else:
-                    fattura["righe"] = {linea[14]: linea[15]}
                 fatture[numFattura] = fattura
+
+            if linea[14] == "Ritenuta d'acconto":
+                fatture[numFattura]["ritenutaAcconto"] = importo
+
             else:
-                if linea[14] == "Ritenuta d'acconto":
-                    fatture[numFattura]["ritenutaAcconto"] = linea[15]
-                else:
-                    fatture[numFattura]["righe"][linea[14]] = linea[15]
+                fatture[numFattura]["importoTotale"] += importo
+                fatture[numFattura]["righe"][linea[14]] = importo
+
+elif fattureFileExtension == ".xml":
+    tree = xml.etree.ElementTree.parse(fattureFile)
+    root = tree.getroot()
+
+    for fattura in root.iter('{STAT_FATTURATO_CTERZI}Dettagli'):
+        righe = dict()
+        numFattura = fattura.get('protocollo_fatturatestata')
+        dataFattura = datetime.datetime.fromisoformat(fattura.get('data_fatturatestata')).strftime("%d%m%Y")
+        tipoFattura = fattura.get('fat_ndc')
+        ragioneSociale = unidecode.unidecode(fattura.get('cognome_cliente') + ' ' + ' '.join(fattura.get('nome_cliente').split(' ')[0:2]))
+        posDivide = str(len(fattura.get('cognome_cliente')) + 1)
+        cf = fattura.get('cf_piva_cliente')
+        importoTotale = 0
+        ritenutaAcconto = 0
+
+        for riga in fattura.iter('{STAT_FATTURATO_CTERZI}Dettagli2'):
+            desc = riga.get('descrizione_fatturariga1')
+            importo = int(format(round(float(riga.get('prezzounitario_fatturariga1')), 2), '.2f').replace('.', '').replace('-', ''))
+            if desc == "Ritenuta d'acconto":
+                ritenutaAcconto = importo
+            else:
+                righe[desc] = importo
+                importoTotale += importo
+
+        fatturaElem = {
+            "numFattura": numFattura,
+            "tipoFattura": tipoFattura,
+            "dataFattura": dataFattura,
+            "ragioneSociale": ragioneSociale,
+            "posDivide": posDivide,
+            "cf": cf,
+            "importoTotale": importoTotale,
+            "ritenutaAcconto": ritenutaAcconto,
+            "righe": righe,
+        }
+        fatture[numFattura] = fatturaElem
+
+else:
+    sys.exit("ERROR: file extension not supported")
+
+
 print("Note di credito:\n")
 with open(traf2000OutputFile, "w") as fileTxt:
     for fattura in fatture.values():
         if fattura["tipoFattura"] == "Nota di credito":
-            print(fattura["numFattura"] + '\n')
+            # As for now this script doesn't handle "Note di credito"
+            print(fattura["numFattura"])
             continue
         linea = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
         linea.append(fattura["ragioneSociale"][:32]+' '*(32-len(fattura["ragioneSociale"])))  # TRF-RASO
@@ -80,7 +129,7 @@ with open(traf2000OutputFile, "w") as fileTxt:
             linea.append('002')  # TRF-CAUSALE
             linea.append("NOTA DI CREDITO")  # TRF-CAU-DES
         linea.append(' '*86)  # TRF-CAU-AGG + TRF-CAU-AGG-1 + TRF-CAU-AGG-2
-        linea.append(fattura["dataFattura"].replace("/", "")*2)  # TRF-DATA-REGISTRAZIONE + TRF-DATA-DOC
+        linea.append(fattura["dataFattura"]*2)  # TRF-DATA-REGISTRAZIONE + TRF-DATA-DOC
         linea.append('00000000')  # TRF-NUM-DOC-FOR
         linea.append(fattura["numFattura"][4:9])  # TRF-NDOC
         linea.append('00')  # TRF-SERIE
@@ -88,8 +137,7 @@ with open(traf2000OutputFile, "w") as fileTxt:
         conta = 0
         for desc, imponibile in fattura["righe"].items():
             conta += 1
-            imponibile = imponibile.replace("€", "").replace(",", "").replace(".", "").replace("(", "").replace(")", "")
-            fattura["importoTotale"] += int(imponibile)
+            imponibile = str(imponibile)
             imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
             linea.append(imponibile)  # TRF-IMPONIB
             if desc != "Bollo":
@@ -105,7 +153,7 @@ with open(traf2000OutputFile, "w") as fileTxt:
         conta = 0
         for desc, imponibile in fattura["righe"].items():
             conta += 1
-            imponibile = imponibile.replace("€", "").replace(",", "").replace(".", "").replace("(", "").replace(")", "")
+            imponibile = str(imponibile)
             imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
             if desc != "Bollo":
                 linea.append('4004300')  # TRF-CONTO-RIC
@@ -123,8 +171,8 @@ with open(traf2000OutputFile, "w") as fileTxt:
         linea.append('N' + '0')  # TRF-AN-OMONIMI + TRF-AN-TIPO-SOGG
         linea.append('00'*80)  # TRF-EC-PARTITA-SEZ-PAG
         linea.append('0'*15)  # TRF-NUM-DOC-PAG-PROF + TRF-DATA-DOC-PAG-PROF
-        if "ritenutaAcconto" in fattura:
-            imponibile = fattura["ritenutaAcconto"].replace("€", "").replace(",", "").replace("(", "").replace(")", "")
+        if fattura["ritenutaAcconto"] != 0:
+            imponibile = str(fattura["ritenutaAcconto"])
             imponibile = '0'*(11-len(imponibile)) + imponibile + "-"
             linea.append(imponibile)  # TRF-RIT-ACC
         else:

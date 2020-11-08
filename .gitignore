@@ -16,4 +16,5 @@ bin/*
 .ipynb_checkpoints
 .ipynb_checkpoints/*
 *.csv
+*.xml
 *.ipynb
