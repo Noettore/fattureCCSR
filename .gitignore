@@ -15,6 +15,13 @@ bin
 bin/*
 .ipynb_checkpoints
 .ipynb_checkpoints/*
+build
+build/*
+dist
+dist/*
+__pycache__
+__pycache__/*
 *.csv
 *.xml
 *.ipynb
+*.spec
