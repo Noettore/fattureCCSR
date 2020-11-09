@@ -14,10 +14,10 @@ def convert(fatture, out_file_path):
                 print("Errore: il documento " + fattura["numFattura"] + " non ha cf/piva")
                 continue
 
-            if fattura["tipoFattura"] == "Nota di credito":
+            """ if fattura["tipoFattura"] == "Nota di credito":
                 # As for now this script doesn't handle "Note di credito"
                 print(fattura["numFattura"])
-                continue
+                continue """
 
             linea = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
             linea.append(fattura["ragioneSociale"][:32]+' '*(32-len(fattura["ragioneSociale"])))  # TRF-RASO
@@ -59,7 +59,11 @@ def convert(fatture, out_file_path):
             for desc, imponibile in fattura["righe"].items():
                 conta += 1
                 imponibile = str(imponibile)
-                imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
+                if '-' in imponibile:
+                    imponibile.replace('-', '')
+                    imponibile = '0'*(11-len(imponibile)) + imponibile + "-"
+                else:
+                    imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
                 linea.append(imponibile)  # TRF-IMPONIB
                 if desc != "Bollo":
                     linea.append('308')  # TRF-ALIQ
@@ -71,14 +75,22 @@ def convert(fatture, out_file_path):
                 linea.append('0'*31)
 
             totale = str(fattura["importoTotale"])
-            totale = '0'*(11-len(totale)) + totale + "+"
+            if '-' in totale:
+                totale.replace('-', '')
+                totale = '0'*(11-len(totale)) + totale + "-"
+            else:
+                totale = '0'*(11-len(totale)) + totale + "+"
             linea.append(totale)  # TRF-TOT-FAT
 
             conta = 0
             for desc, imponibile in fattura["righe"].items():
                 conta += 1
                 imponibile = str(imponibile)
-                imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
+                if '-' in imponibile:
+                    imponibile.replace('-', '')
+                    imponibile = '0'*(11-len(imponibile)) + imponibile + "-"
+                else:
+                    imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
                 if desc != "Bollo":
                     linea.append('4004300')  # TRF-CONTO-RIC
                 else:
@@ -151,8 +163,11 @@ def convert(fatture, out_file_path):
             linea.append('0'*8 + 'N' + '000' + totale + '0'*14 + '0'*8 + ' '*40)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
             linea.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + ' '*40)*49)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
 
-            # TODO: if Nota di Credito append ref. invoice no and date
-            linea.append('0'*16)  # TRF-RIF-FATT-NDOC + TRF-RIF-FATT-DDOC
+            if fattura["tipoFattura"] == "Nota di credito":
+                linea.append('000' + fattura["rifFattura"][4:9])  # TRF-RIF-FATT-NDOC
+                linea.append('0'*8)  # TRF-RIF-FATT-DDOC
+            else:
+                linea.append('0'*16)  # TRF-RIF-FATT-NDOC + TRF-RIF-FATT-DDOC
             linea.append(' ' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append(' '*78)  # TRF-SPESE-FUNEBRI + FILLER + FILLER
