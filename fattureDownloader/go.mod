@@ -1,4 +1,4 @@
-module github.com/Noettore/fattureSanRossore
+module github.com/Noettore/fattureSanRossore/fattureDownloader
 
 go 1.14
 
