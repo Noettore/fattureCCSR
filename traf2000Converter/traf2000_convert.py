@@ -14,10 +14,10 @@ def convert(fatture, out_file_path):
                 print("Errore: il documento " + fattura["numFattura"] + " non ha cf/piva")
                 continue
 
-            """ if fattura["tipoFattura"] == "Nota di credito":
+            if fattura["tipoFattura"] == "Nota di credito":
                 # As for now this script doesn't handle "Note di credito"
                 print(fattura["numFattura"])
-                continue """
+                continue
 
             linea = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
             linea.append(fattura["ragioneSociale"][:32]+' '*(32-len(fattura["ragioneSociale"])))  # TRF-RASO
@@ -111,7 +111,7 @@ def convert(fatture, out_file_path):
 
             if fattura["ritenutaAcconto"] != 0:
                 imponibile = str(fattura["ritenutaAcconto"])
-                imponibile = '0'*(11-len(imponibile)) + imponibile + "-"
+                imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
                 linea.append(imponibile)  # TRF-RIT-ACC
             else:
                 linea.append('0'*12)  # TRF-RIT-ACC
@@ -126,17 +126,17 @@ def convert(fatture, out_file_path):
             linea.append('N' + 'N' + '00000000' + '000')  # TRF-DIFFERIMENTO-IVA + TRF-STORICO + TRF-STORICO-DATA + TRF-CAUS-ORI
             linea.append(' ' + ' ' + '0'*16 + ' ')  # TRF-PREV-TIPOMOV + TRF-PREV-RATRIS + TRF-PREV-DTCOMP-INI + TRF-PREV-DTCOMP-FIN + TRF-PREV-FLAG-CONT
             linea.append(' '*20 + '0'*21 + ' '*44 + '0'*8 + ' ' + '0'*6 + ' ' + '00' + ' ')  # TRF-RIFERIMENTO + TRF-CAUS-PREST-ANA + TRF-EC-TIPO-PAGA + TRF-CONTO-IVA-VEN-ACQ + TRF-PIVA-VECCHIA + TRF-PIVA-ESTERO-VECCHIA + # TRF-RISERVATO + TRF-DATA-IVA-AGVIAGGI + TRF-DATI-AGG-ANA-REC4 + TRF-RIF-IVA-NOTE-CRED + TRF-RIF-IVA-ANNO-PREC + TRF-NATURA-GIURIDICA + TRF-STAMPA-ELENCO
-            linea.append('000'*8 + ' '*20 + '0' + ' '*4 + '0'*6 + ' '*20 + 'S' + 'S')  # TRF-PERC-FORF + TRF-SOLO-MOV-IVA + TRF-COFI-VECCHIO + TRF-USA-PIVA-VECCHIA + TRF-USA-PIVA-EST-VECCHIA + TRF-USA-COFI-VECCHIO + TRF-ESIGIBILITA-IVA + TRF-TIPO-MOV-RISCONTI + TRF-AGGIORNA-EC + TRF-BLACKLIST-ANAG + TRF-BLACKLIST-IVA-ANNO + TRF-CONTEA-ESTERO + TRF-ART21-ANAG + TRF-ART21-IVA
+            linea.append('000'*8 + ' '*20 + '0' + ' '*4 + '0'*6 + ' '*20 + 'S' + 'N')  # TRF-PERC-FORF + TRF-SOLO-MOV-IVA + TRF-COFI-VECCHIO + TRF-USA-PIVA-VECCHIA + TRF-USA-PIVA-EST-VECCHIA + TRF-USA-COFI-VECCHIO + TRF-ESIGIBILITA-IVA + TRF-TIPO-MOV-RISCONTI + TRF-AGGIORNA-EC + TRF-BLACKLIST-ANAG + TRF-BLACKLIST-IVA-ANNO + TRF-CONTEA-ESTERO + TRF-ART21-ANAG + TRF-ART21-IVA
 
             if fattura["tipoFattura"] == "Fattura":
                 linea.append('N')  # TRF-RIF-FATTURA
             else:
                 linea.append('S')  # TRF-RIF-FATTURA
-            linea.append(' '*3 + 's' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
+            linea.append('S' + ' '*2 + 'S' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
             linea.append('\n')
 
             #RECORD 1 per num. doc. originale
-            linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
+            """ linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
             linea.append('0'*7 + ' '*3 + '0'*14)  # TRF-NUM-AUTOFATT + TRF-SERIE-AUTOFATT + TRF-COD-VAL + TRF-TOTVAL
             linea.append((' '*8 + '0'*24 + ' ' + '0'*36 + ' '*2 + '0'*9 + ' '*5)*20)  # TRF-NOMENCLATURA + TRF-IMP-LIRE + TRF-IMP-VAL + TRF-NATURA + TRF-MASSA + TRF-UN-SUPPL + TRF-VAL-STAT + TRF-REGIME + TRF-TRASPORTO + TRF-PAESE-PROV + TRF-PAESE-ORIG + TRF-PAESE-DEST + TRF-PROV-DEST + TRF-PROV-ORIG + TRF-SEGNO-RET
             linea.append(' ' + '0'*6 + ' '*173)  # TRF-INTRA-TIPO + TRF-MESE-ANNO-RIF + SPAZIO
@@ -146,21 +146,21 @@ def convert(fatture, out_file_path):
             linea.append('0'*13 + ' '*30 + '0'*14)  # TRF-POR-CODPAG + TRF-POR-BANCA + TRF-POR-AGENZIA + TRF-POR-DESAGENZIA + TRF-POR-TOT-RATE + TRF-POR-TOTDOC
             linea.append(('0'*65 + ' '*2)*12)  # TRF-POR-NUM-RATA + TRF-POR-DATASCAD + TRF-POR-TIPOEFF + TRF-POR-IMPORTO-EFF + TRF-POR-IMPORTO-EFFVAL + TRF-POR-IMPORTO-BOLLI + TRF-POR-IMPORTO-BOLLIVAL + TRF-POR-FLAG + TRF-POR-TIPO-RD
             linea.append('0'*4 + ' '*336)  # TRF-POR-CODAGE + TRF-POR-EFFETTO-SOSP + TRF-POR-CIG + TRF-POR-CUP + SPAZIO
-            linea.append((' '*19)*20)  # TRF-COD-VAL-IV + TRF-IMP-VALUTA-IV
-            linea.append((' '*6 + '0'*35 + ' '*2 + '0'*20 + ' '*35)*20)  # TRF-CODICE-SERVIZIO + TRF-STATO-PAGAMENTO + TRF-SERV-IMP-EURO + TRF-SERV-IMP-VAL + TRF-DATA-DOC-ORIG + TRF-MOD-EROGAZIONE + TRF-MOD-INCASSO + TRF-PROT-REG + TRF-PROG-REG + TRF-COD-SEZ-DOG-RET + TRF-ANNO-REG-RET + TRF-NUM-DOC-ORIG + TRF-SERV-SEGNO-RET + TRF-SERV-COD-VAL-IV + TRF-SERV-IMP-VALUTA-IV
+            linea.append((' '*3 + '0'*16)*20)  # TRF-COD-VAL-IV + TRF-IMP-VALUTA-IV
+            linea.append((' '*6 + '0'*35 + ' '*2 + '0'*20 + ' '*19 + '0'*16)*20)  # TRF-CODICE-SERVIZIO + TRF-STATO-PAGAMENTO + TRF-SERV-IMP-EURO + TRF-SERV-IMP-VAL + TRF-DATA-DOC-ORIG + TRF-MOD-EROGAZIONE + TRF-MOD-INCASSO + TRF-PROT-REG + TRF-PROG-REG + TRF-COD-SEZ-DOG-RET + TRF-ANNO-REG-RET + TRF-NUM-DOC-ORIG + TRF-SERV-SEGNO-RET + TRF-SERV-COD-VAL-IV + TRF-SERV-IMP-VALUTA-IV
             linea.append(' '*1 + '0'*6)  # TRF-INTRA-TIPO-SERVIZIO + TRF-SERV-MESE-ANNO-RIF
             linea.append(' '*8)  # TRF-CK-RCHARGE
             linea.append('0'*(15-len(fattura["numFattura"])) + fattura["numFattura"])  # TRF-XNUM-DOC-ORI
             linea.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
-            linea.append('\n')
+            linea.append('\n') """
 
             #RECORD 5 per Tessera Sanitaria
             linea.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
             linea.append(' '*1200)  # TRF-ART21-CONTRATTO
-            linea.append('0'*6 + ' '*16)  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
+            linea.append('0'*6 + fattura["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
             totale = str(fattura["importoTotale"])
             totale = '0'*(13-len(totale)) + totale + "+"
-            linea.append('0'*8 + 'N' + '000' + totale + '0'*14 + '0'*8 + ' '*40)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
+            linea.append(fattura["dataFattura"] + 'S' + '000' + totale + '0'*14 + '0' + fattura["numFattura"][4:9] + '00' + ' '*40)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
             linea.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + ' '*40)*49)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
 
             if fattura["tipoFattura"] == "Nota di credito":
@@ -168,7 +168,7 @@ def convert(fatture, out_file_path):
                 linea.append('0'*8)  # TRF-RIF-FATT-DDOC
             else:
                 linea.append('0'*16)  # TRF-RIF-FATT-NDOC + TRF-RIF-FATT-DDOC
-            linea.append(' ' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
+            linea.append('F' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append(' '*78)  # TRF-SPESE-FUNEBRI + FILLER + FILLER
 
