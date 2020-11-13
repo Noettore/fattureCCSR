@@ -151,7 +151,7 @@ def convert(fatture, out_file_path):
                 linea.append('0'*16)  # TRF-RIF-FATT-NDOC + TRF-RIF-FATT-DDOC
             linea.append('F' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
-            linea.append(' '*78)  # TRF-SPESE-FUNEBRI + FILLER + FILLER
+            linea.append(' ' + 'S' + ' '*76)  # TRF-SPESE-FUNEBRI + TRF-A21CO-PAGAM + FILLER + FILLER
             linea.append('\n')
 
             #RECORD 1 per num. doc. originale
