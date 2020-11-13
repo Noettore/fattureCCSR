@@ -135,25 +135,6 @@ def convert(fatture, out_file_path):
             linea.append('S' + ' '*2 + 'S' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
             linea.append('\n')
 
-            #RECORD 1 per num. doc. originale
-            """ linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
-            linea.append('0'*7 + ' '*3 + '0'*14)  # TRF-NUM-AUTOFATT + TRF-SERIE-AUTOFATT + TRF-COD-VAL + TRF-TOTVAL
-            linea.append((' '*8 + '0'*24 + ' ' + '0'*36 + ' '*2 + '0'*9 + ' '*5)*20)  # TRF-NOMENCLATURA + TRF-IMP-LIRE + TRF-IMP-VAL + TRF-NATURA + TRF-MASSA + TRF-UN-SUPPL + TRF-VAL-STAT + TRF-REGIME + TRF-TRASPORTO + TRF-PAESE-PROV + TRF-PAESE-ORIG + TRF-PAESE-DEST + TRF-PROV-DEST + TRF-PROV-ORIG + TRF-SEGNO-RET
-            linea.append(' ' + '0'*6 + ' '*173)  # TRF-INTRA-TIPO + TRF-MESE-ANNO-RIF + SPAZIO
-            linea.append('0'*45 + ' '*4 + '0'*20 + ' '*28 + '0'*25)  # TRF-RITA-TIPO + TRF-RITA-IMPON + TRF-RITA-ALIQ + TRF-RITA-IMPRA + TRF-RITA-PRONS + TRF-RITA-MESE + TRF-RITA-CAUSA + TRF-RITA-TRIBU + TRF-RITA-DTVERS + TRF-RITA-IMPAG + TRF-RITA-TPAG + TRF-RITA-SERIE + TRF-RITA-QUIETANZA + TRF-RITA-NUM-BOLL + TRF-RITA-ABI + TRF-RITA-CAB + TRF-RITA-AACOMP + TRF-RITA-CRED
-            linea.append(' ' + '0'*44 + ' '*11 + '0'*64)  #TRF-RITA-SOGG + TRF-RITA-BASEIMP + TRF-RITA-FRANCHIGIA + TRF-RITA-CTO-PERC + TRF-RITA-CTO-DITT + FILLER + TRF-RITA-DATA + TRF-RITA-TOTDOC + TRF-RITA-IMPVERS + TRF-RITA-DATA-I + TRF-RITA-DATA-F + TRF-EMENS-ATT + TRF-EMENS-RAP + TRF-EMENS-ASS + TRF-RITA-TOTIVA
-            linea.append('0'*6 + ' '*178)  # TRF-CAUS-PREST-ANA-B + TRF-RITA-CAUSA-B + FILLER
-            linea.append('0'*13 + ' '*30 + '0'*14)  # TRF-POR-CODPAG + TRF-POR-BANCA + TRF-POR-AGENZIA + TRF-POR-DESAGENZIA + TRF-POR-TOT-RATE + TRF-POR-TOTDOC
-            linea.append(('0'*65 + ' '*2)*12)  # TRF-POR-NUM-RATA + TRF-POR-DATASCAD + TRF-POR-TIPOEFF + TRF-POR-IMPORTO-EFF + TRF-POR-IMPORTO-EFFVAL + TRF-POR-IMPORTO-BOLLI + TRF-POR-IMPORTO-BOLLIVAL + TRF-POR-FLAG + TRF-POR-TIPO-RD
-            linea.append('0'*4 + ' '*336)  # TRF-POR-CODAGE + TRF-POR-EFFETTO-SOSP + TRF-POR-CIG + TRF-POR-CUP + SPAZIO
-            linea.append((' '*3 + '0'*16)*20)  # TRF-COD-VAL-IV + TRF-IMP-VALUTA-IV
-            linea.append((' '*6 + '0'*35 + ' '*2 + '0'*20 + ' '*19 + '0'*16)*20)  # TRF-CODICE-SERVIZIO + TRF-STATO-PAGAMENTO + TRF-SERV-IMP-EURO + TRF-SERV-IMP-VAL + TRF-DATA-DOC-ORIG + TRF-MOD-EROGAZIONE + TRF-MOD-INCASSO + TRF-PROT-REG + TRF-PROG-REG + TRF-COD-SEZ-DOG-RET + TRF-ANNO-REG-RET + TRF-NUM-DOC-ORIG + TRF-SERV-SEGNO-RET + TRF-SERV-COD-VAL-IV + TRF-SERV-IMP-VALUTA-IV
-            linea.append(' '*1 + '0'*6)  # TRF-INTRA-TIPO-SERVIZIO + TRF-SERV-MESE-ANNO-RIF
-            linea.append(' '*8)  # TRF-CK-RCHARGE
-            linea.append('0'*(15-len(fattura["numFattura"])) + fattura["numFattura"])  # TRF-XNUM-DOC-ORI
-            linea.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
-            linea.append('\n') """
-
             #RECORD 5 per Tessera Sanitaria
             linea.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
             linea.append(' '*1200)  # TRF-ART21-CONTRATTO
@@ -171,6 +152,25 @@ def convert(fatture, out_file_path):
             linea.append('F' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append(' '*78)  # TRF-SPESE-FUNEBRI + FILLER + FILLER
+            linea.append('\n')
+
+            #RECORD 1 per num. doc. originale
+            linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
+            linea.append('0'*7 + ' '*3 + '0'*14)  # TRF-NUM-AUTOFATT + TRF-SERIE-AUTOFATT + TRF-COD-VAL + TRF-TOTVAL
+            linea.append((' '*8 + '0'*24 + ' ' + '0'*36 + ' '*2 + '0'*9 + ' '*5)*20)  # TRF-NOMENCLATURA + TRF-IMP-LIRE + TRF-IMP-VAL + TRF-NATURA + TRF-MASSA + TRF-UN-SUPPL + TRF-VAL-STAT + TRF-REGIME + TRF-TRASPORTO + TRF-PAESE-PROV + TRF-PAESE-ORIG + TRF-PAESE-DEST + TRF-PROV-DEST + TRF-PROV-ORIG + TRF-SEGNO-RET
+            linea.append(' ' + '0'*6 + ' '*173)  # TRF-INTRA-TIPO + TRF-MESE-ANNO-RIF + SPAZIO
+            linea.append('0'*45 + ' '*4 + '0'*20 + ' '*28 + '0'*25)  # TRF-RITA-TIPO + TRF-RITA-IMPON + TRF-RITA-ALIQ + TRF-RITA-IMPRA + TRF-RITA-PRONS + TRF-RITA-MESE + TRF-RITA-CAUSA + TRF-RITA-TRIBU + TRF-RITA-DTVERS + TRF-RITA-IMPAG + TRF-RITA-TPAG + TRF-RITA-SERIE + TRF-RITA-QUIETANZA + TRF-RITA-NUM-BOLL + TRF-RITA-ABI + TRF-RITA-CAB + TRF-RITA-AACOMP + TRF-RITA-CRED
+            linea.append(' ' + '0'*44 + ' '*11 + '0'*64)  #TRF-RITA-SOGG + TRF-RITA-BASEIMP + TRF-RITA-FRANCHIGIA + TRF-RITA-CTO-PERC + TRF-RITA-CTO-DITT + FILLER + TRF-RITA-DATA + TRF-RITA-TOTDOC + TRF-RITA-IMPVERS + TRF-RITA-DATA-I + TRF-RITA-DATA-F + TRF-EMENS-ATT + TRF-EMENS-RAP + TRF-EMENS-ASS + TRF-RITA-TOTIVA
+            linea.append('0'*6 + ' '*178)  # TRF-CAUS-PREST-ANA-B + TRF-RITA-CAUSA-B + FILLER
+            linea.append('0'*13 + ' '*30 + '0'*14)  # TRF-POR-CODPAG + TRF-POR-BANCA + TRF-POR-AGENZIA + TRF-POR-DESAGENZIA + TRF-POR-TOT-RATE + TRF-POR-TOTDOC
+            linea.append(('0'*65 + ' '*2)*12)  # TRF-POR-NUM-RATA + TRF-POR-DATASCAD + TRF-POR-TIPOEFF + TRF-POR-IMPORTO-EFF + TRF-POR-IMPORTO-EFFVAL + TRF-POR-IMPORTO-BOLLI + TRF-POR-IMPORTO-BOLLIVAL + TRF-POR-FLAG + TRF-POR-TIPO-RD
+            linea.append('0'*4 + ' '*336)  # TRF-POR-CODAGE + TRF-POR-EFFETTO-SOSP + TRF-POR-CIG + TRF-POR-CUP + SPAZIO
+            linea.append((' '*3 + '0'*16)*20)  # TRF-COD-VAL-IV + TRF-IMP-VALUTA-IV
+            linea.append((' '*6 + '0'*35 + ' '*2 + '0'*20 + ' '*19 + '0'*16)*20)  # TRF-CODICE-SERVIZIO + TRF-STATO-PAGAMENTO + TRF-SERV-IMP-EURO + TRF-SERV-IMP-VAL + TRF-DATA-DOC-ORIG + TRF-MOD-EROGAZIONE + TRF-MOD-INCASSO + TRF-PROT-REG + TRF-PROG-REG + TRF-COD-SEZ-DOG-RET + TRF-ANNO-REG-RET + TRF-NUM-DOC-ORIG + TRF-SERV-SEGNO-RET + TRF-SERV-COD-VAL-IV + TRF-SERV-IMP-VALUTA-IV
+            linea.append(' '*1 + '0'*6)  # TRF-INTRA-TIPO-SERVIZIO + TRF-SERV-MESE-ANNO-RIF
+            linea.append(' '*8)  # TRF-CK-RCHARGE
+            linea.append('0'*(15-len(fattura["numFattura"])) + fattura["numFattura"])  # TRF-XNUM-DOC-ORI
+            linea.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
 
             linea = ''.join(linea) + '\n'
 
