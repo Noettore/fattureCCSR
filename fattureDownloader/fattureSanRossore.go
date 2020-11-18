@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -40,9 +41,9 @@ func getInvoiceIDs(fileName string) []string {
 
 	var invoiceIDs []string
 
-	for i := 4; i <= int(sheet.MaxRow); i++ {
+	for i := 0; i <= int(sheet.MaxRow); i++ {
 		row := sheet.Row(i)
-		if row.Col(8) != "" {
+		if strings.Contains(row.Col(8), "CCSR") {
 			id := strings.ReplaceAll(row.Col(8), "/", "-")
 			invoiceIDs = append(invoiceIDs, id)
 		}
@@ -51,7 +52,7 @@ func getInvoiceIDs(fileName string) []string {
 }
 
 func convertXLStoFODS(fileName string) string {
-	var sofficePath string = "libreoffice"
+	var sofficePath = "libreoffice"
 	if runtime.GOOS == "windows" {
 		sofficePath = filepath.FromSlash("C:/Program Files/LibreOffice/program/soffice.exe")
 	}
@@ -157,15 +158,15 @@ func createTmpDir() string {
 func downloadInvoices(ids []string, urls []string) []string {
 	if len(ids) != len(urls) {
 		exitWithError = true
-		log.Panicf("Il numero di fatture da scaricare non corrisponde al numero di URL individuati nel file")
+		log.Printf("Il numero di fatture da scaricare non corrisponde al numero di URL individuati nel file. IDs: %d/URLs: %d", len(ids), len(urls))
 	}
 
 	wg := sync.WaitGroup{}
 	sem := make(chan bool, 30)
 	mu := sync.Mutex{}
-	invoiceNum := len(ids)
+	invoiceNum := minOf(len(ids), len(urls))
 	downloadCount := 0
-	downloadedFiles := make([]string, invoiceNum)
+	downloadedFiles := make([]string, 0)
 
 	log.Printf("Inizio il download di %d fatture\n", invoiceNum)
 	for i := 0; i < invoiceNum; i++ {
@@ -180,9 +181,11 @@ func downloadInvoices(ids []string, urls []string) []string {
 			err := downloadFile(out, url)
 			if err != nil {
 				log.Printf("Impossibile scaricare il file %v: %v\n", url, err)
+			} else if api.ValidateFile(out, nil) != nil {
+				log.Printf("Errore nella validazione del file %v\n", out)
 			} else {
-				downloadedFiles[i] = out
 				mu.Lock()
+				downloadedFiles = append(downloadedFiles, out)
 				downloadCount++
 				mu.Unlock()
 			}
@@ -192,7 +195,8 @@ func downloadInvoices(ids []string, urls []string) []string {
 	}
 	wg.Wait()
 	log.Printf("Scaricate %d/%d fatture\n", downloadCount, invoiceNum)
-	return downloadedFiles[:downloadCount]
+	sort.Strings(downloadedFiles)
+	return downloadedFiles
 }
 
 func mergeInvoices(files []string) string {
@@ -245,6 +249,18 @@ func cleanTmpDir() {
 	if err != nil {
 		log.Printf("Impossibile eliminare la directory temporanea %v: %v\n", outDir, err)
 	}
+}
+
+func minOf(vars ...int) int {
+	min := vars[0]
+
+	for _, i := range vars {
+		if min > i {
+			min = i
+		}
+	}
+
+	return min
 }
 
 func main() {
