@@ -1,9 +1,12 @@
-"""This script ask for an input file and an output file and generates the TRAF2000 records from a .csv or .xml"""
+"""ask for an input file and an output file and generates the TRAF2000 records from a .csv or .xml"""
 
+import os
 import datetime
 import csv
 import xml.etree.ElementTree
 import unidecode
+
+import exc
 
 def import_csv(csv_file_path):
     """Return a dict containing the invoices info"""
@@ -89,8 +92,18 @@ def import_xml(xml_file_path):
     return fatture
 
 
-def convert(fatture, out_file_path):
+def convert(input_file_path, out_file_path):
     """Output to a file the TRAF2000 records"""
+    input_file_ext = os.path.splitext(input_file_path)[1]
+    if input_file_ext == ".csv":
+        fatture = import_csv(input_file_path)
+
+    elif input_file_ext == ".xml":
+        fatture = import_xml(input_file_path)
+
+    else:
+        raise exc.WrongFileExtension("Expected .csv or .xml but received " + input_file_ext)
+
     with open(out_file_path, "w") as traf2000_file:
         print("Note di credito:\n")
 
