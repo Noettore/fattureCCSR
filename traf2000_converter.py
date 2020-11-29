@@ -1,14 +1,14 @@
 """ask for an input file and an output file and generates the TRAF2000 records from a .csv or .xml"""
 
-import os
 import datetime
 import csv
 import xml.etree.ElementTree
 import unidecode
 
-import exc
+import utils
+import logger
 
-def import_csv(csv_file_path):
+def import_csv(csv_file_path: str) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
     with open(csv_file_path, newline="") as csv_file:
@@ -48,9 +48,10 @@ def import_csv(csv_file_path):
             else:
                 fatture[num_fattura]["importoTotale"] += importo
                 fatture[num_fattura]["righe"][linea[14]] = importo
+            logger.converter_logger.info("Importata fattura n. %s", num_fattura)
     return fatture
 
-def import_xml(xml_file_path):
+def import_xml(xml_file_path: str) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
 
@@ -89,36 +90,35 @@ def import_xml(xml_file_path):
             "righe": righe,
         }
         fatture[num_fattura] = fattura_elem
+        logger.converter_logger.info("Importata fattura n. %s", num_fattura)
     return fatture
 
 
-def convert(input_file_path, out_file_path):
+def convert(input_file_path: str, out_file_path: str):
     """Output to a file the TRAF2000 records"""
-    input_file_ext = os.path.splitext(input_file_path)[1]
+
+    input_file_ext = utils.file_extension(input_file_path, (".xml", ".csv"))
     if input_file_ext == ".csv":
         fatture = import_csv(input_file_path)
 
     elif input_file_ext == ".xml":
         fatture = import_xml(input_file_path)
 
-    else:
-        raise exc.WrongFileExtension("Expected .csv or .xml but received " + input_file_ext)
-
     with open(out_file_path, "w") as traf2000_file:
-        print("Note di credito:\n")
+        logger.note_credito_logger.info("Note di credito:")
 
         for fattura in fatture.values():
             if fattura["tipoFattura"] != "Fattura" and fattura["tipoFattura"] != "Nota di credito":
-                print("Errore: il documento " + fattura["numFattura"] + " può essere FATTURA o NOTA DI CREDITO")
+                logger.converter_logger.error("Errore: il documento %s può essere FATTURA o NOTA DI CREDITO", fattura["numFattura"])
                 continue
 
             if len(fattura["cf"]) != 16 and len(fattura["cf"]) == 11:
-                print("Errore: il documento " + fattura["numFattura"] + " non ha cf/piva")
+                logger.converter_logger.error("Errore: il documento %s non ha cf/piva", fattura["numFattura"])
                 continue
 
             if fattura["tipoFattura"] == "Nota di credito":
                 # As for now this script doesn't handle "Note di credito"
-                print(fattura["numFattura"])
+                logger.note_credito_logger.info(fattura["numFattura"])
                 continue
 
             linea = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
@@ -236,6 +236,7 @@ def convert(input_file_path, out_file_path):
                 linea.append('S')  # TRF-RIF-FATTURA
             linea.append('S' + ' '*2 + 'S' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
             linea.append('\n')
+            logger.converter_logger.info("Creato record #0 per fattura n. %s", fattura["numFattura"])
 
             #RECORD 5 per Tessera Sanitaria
             linea.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
@@ -255,6 +256,7 @@ def convert(input_file_path, out_file_path):
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append(' ' + 'S' + ' '*76)  # TRF-SPESE-FUNEBRI + TRF-A21CO-PAGAM + FILLER + FILLER
             linea.append('\n')
+            logger.converter_logger.info("Creato record #5 per fattura n. %s", fattura["numFattura"])
 
             #RECORD 1 per num. doc. originale
             linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
@@ -273,7 +275,9 @@ def convert(input_file_path, out_file_path):
             linea.append(' '*8)  # TRF-CK-RCHARGE
             linea.append('0'*(15-len(fattura["numFattura"])) + fattura["numFattura"])  # TRF-XNUM-DOC-ORI
             linea.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
+            logger.converter_logger.info("Creato record #1 per fattura n. %s", fattura["numFattura"])
 
             linea = ''.join(linea) + '\n'
 
             traf2000_file.write(linea)
+            logger.converter_logger.info("Convertita fattura n. %s", fattura["numFattura"])
