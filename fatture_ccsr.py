@@ -3,6 +3,7 @@
 import logging
 import wx
 
+import downloader
 import traf2000_converter
 import exc
 import utils
@@ -39,11 +40,9 @@ class LogDialog(wx.Dialog):
         log_handler.setLevel(logging.INFO)
         self.logger.addHandler(log_handler)
 
-        self.btn = wx.Button(self, wx.ID_OK, "Chiudi")
-        self.btn.Disable()
-
-        sizer = wx.BoxSizer(wx.HORIZONTAL)
-        sizer.Add(log_text, 0, wx.ALL, 2)
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+        log_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        log_sizer.Add(log_text, 0, wx.ALL, 2)
 
         if action == CONVERT_ACTION:
             self.nc_logger = logger.note_credito_logger
@@ -51,9 +50,14 @@ class LogDialog(wx.Dialog):
             nc_handler = LogHandler(nc_text)
             self.nc_logger.addHandler(nc_handler)
 
-            sizer.Add(nc_text, 0, wx.ALL, 2)
+            log_sizer.Add(nc_text, 0, wx.ALL, 2)
 
-        self.SetSizerAndFit(sizer)
+        main_sizer.Add(log_sizer, 0, wx.ALL, 2)
+        self.btn = wx.Button(self, wx.ID_OK, "Chiudi")
+        self.btn.Disable()
+        main_sizer.Add(self.btn, 0, wx.ALL|wx.CENTER, 2)
+
+        self.SetSizerAndFit(main_sizer)
 
 class LoginDialog(wx.Dialog):
     """login dialog for basic auth download"""
@@ -76,6 +80,7 @@ class LoginDialog(wx.Dialog):
         pass_sizer.Add(self.password, 0, wx.ALL, 2)
 
         login_btn = wx.Button(self, label="Login")
+        login_btn.SetDefault()
         login_btn.Bind(wx.EVT_BUTTON, self.on_login)
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -87,7 +92,7 @@ class LoginDialog(wx.Dialog):
 
     def on_login(self, _):
         """check credentials and login"""
-        if self.username not in ("", None) and self.password.GetValue() not in ("", None):
+        if self.username.GetValue() not in ("", None) and self.password.GetValue() not in ("", None):
             self.logged_id = True
         self.Close()
 
@@ -127,7 +132,8 @@ class FattureCCSRFrame(wx.Frame):
         self.traf2000_btn.Disable()
 
         self.login_dlg = LoginDialog(self, "Inserisci le credenziali di login al portale della CCSR")
-        self.output_file_dialog = wx.FileDialog(panel, "Scegli dove salvare il file TRAF2000", defaultFile="TRAF2000", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        self.output_traf2000_dialog = wx.FileDialog(panel, "Scegli dove salvare il file TRAF2000", defaultFile="TRAF2000", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        self.output_pdf_dialog = wx.FileDialog(panel, "Scegli dove salvare il .pdf con le fatture scaricate", defaultFile="fatture.pdf", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
 
         main_sizer.Add(input_file_text, 0, wx.ALL|wx.CENTER, 2)
         main_sizer.Add(input_file_doc, 0, wx.ALL|wx.CENTER, 2)
@@ -160,13 +166,24 @@ class FattureCCSRFrame(wx.Frame):
         """event raised when a button is clicked"""
         btn_id = event.GetEventObject().GetId()
         if btn_id == DOWNLOAD_ACTION:
+            if self.output_pdf_dialog.ShowModal() == wx.ID_OK:
+                self.output_file_path = self.output_pdf_dialog.GetPath()
+            else:
+                #TODO: avviso errore file output
+                return
             self.login_dlg.ShowModal()
             if self.login_dlg.logged_id:
-                print("Download")
+                self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
+                self.log_dialog.Show()
+                downloader.download_invoices(self.input_file_path, self.output_file_path, self.login_dlg.username.GetValue(), self.login_dlg.password.GetValue())
+                self.log_dialog.btn.Enable()
         elif btn_id == CONVERT_ACTION:
-            if self.output_file_dialog.ShowModal() == wx.ID_OK:
-                self.output_file_path = self.output_file_dialog.GetPath()
-            self.log_dialog = LogDialog(self, "Log", CONVERT_ACTION)
+            if self.output_traf2000_dialog.ShowModal() == wx.ID_OK:
+                self.output_file_path = self.output_traf2000_dialog.GetPath()
+            else:
+                #TODO: avviso errore file output
+                return
+            self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
             self.log_dialog.Show()
             try:
                 traf2000_converter.convert(self.input_file_path, self.output_file_path)

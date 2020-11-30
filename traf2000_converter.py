@@ -281,3 +281,4 @@ def convert(input_file_path: str, out_file_path: str):
 
             traf2000_file.write(linea)
             logger.converter_logger.info("Convertita fattura n. %s", fattura["numFattura"])
+        logger.converter_logger.info("Conversione terminata")
