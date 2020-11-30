@@ -147,6 +147,7 @@ class FattureCCSRFrame(wx.Frame):
     def file_picker_changed(self, event):
         """event raised when the input file path is changed"""
         self.input_file_path = event.GetEventObject().GetPath()
+        #TODO: error frame
         try:
             self.input_file_ext = utils.file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
         except exc.NoFileError as handled_exception:
@@ -185,6 +186,7 @@ class FattureCCSRFrame(wx.Frame):
                 return
             self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
             self.log_dialog.Show()
+            #TODO: error frame
             try:
                 traf2000_converter.convert(self.input_file_path, self.output_file_path)
             except exc.NoFileError as handled_exception:

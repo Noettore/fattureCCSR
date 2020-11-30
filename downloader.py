@@ -1,5 +1,8 @@
 """ask for an input file (.xlsx) and an output file (.pdf) and downloads and unite every invoice"""
 
+import sys
+import os
+import subprocess
 import shutil
 import tempfile
 import requests
@@ -30,6 +33,13 @@ def get_invoices_info(input_file_path: str) -> dict:
 
     return invoices
 
+def open_file(file_path):
+    """open a file with the default software"""
+    if sys.platform == "win32":
+        os.startfile(file_path) # pylint: disable=maybe-no-member
+    else:
+        opener = "open" if sys.platform == "darwin" else "xdg-open"
+        subprocess.call([opener, file_path])
 
 def download_invoices(input_file_path: str, output_file_path: str, username: str, password: str):
     """download invoices from CCSR"""
@@ -42,11 +52,10 @@ def download_invoices(input_file_path: str, output_file_path: str, username: str
     tmp_dir = tempfile.mkdtemp()
 
     invoices_count = len(invoices)
-    processed_count = 0
+    downloaded_count = 0
 
     for invoice_id, invoice in invoices.items():
         resp = session.get(invoice["url"])
-        processed_count += 1
         if resp.status_code == 200:
             with open(tmp_dir+"/"+invoice_id+".pdf", "wb") as output_file:
                 output_file.write(resp.content)
@@ -55,13 +64,14 @@ def download_invoices(input_file_path: str, output_file_path: str, username: str
                 try:
                     PyPDF2.PdfFileReader(open(invoice["path"], "rb"))
                 except (PyPDF2.utils.PdfReadError, OSError):
-                    logger.downloader_logger.error("%d/%d fattura %s corrotta!", processed_count, invoices_count, invoice_id)
+                    logger.downloader_logger.error("fattura %s corrotta!", invoice_id)
                     invoice["good"] = False
                 else:
-                    logger.downloader_logger.info("%d/%d scaricata fattura %s in %s", processed_count, invoices_count, invoice_id, invoice["path"])
+                    downloaded_count += 1
+                    logger.downloader_logger.info("%d/%d scaricata fattura %s in %s", downloaded_count, invoices_count, invoice_id, invoice["path"])
                     invoice["good"] = True
         else:
-            logger.downloader_logger.error("%d/%d impossibile scaricare fattura %s: %d", processed_count, invoices_count, invoice_id, resp.status_code)
+            logger.downloader_logger.error("impossibile scaricare fattura %s: %d", invoice_id, resp.status_code)
             invoice["good"] = False
 
     merger = PyPDF2.PdfFileMerger()
@@ -69,7 +79,9 @@ def download_invoices(input_file_path: str, output_file_path: str, username: str
         if invoice["good"]:
             merger.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
     merger.write(output_file_path)
-    
+
+    open_file(output_file_path)
+
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
     logger.downloader_logger.info("Download terminato. Il pdf contenente le fatture si trova in %s", output_file_path)
