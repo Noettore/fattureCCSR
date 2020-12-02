@@ -4,11 +4,11 @@ import datetime
 import csv
 import xml.etree.ElementTree
 import unidecode
+import wx
 
 import utils
-import logger
 
-def import_csv(csv_file_path: str) -> dict:
+def import_csv(csv_file_path: str, parent) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
     with open(csv_file_path, newline="") as csv_file:
@@ -33,7 +33,7 @@ def import_csv(csv_file_path: str) -> dict:
                     "tipoFattura": tipo_fattura,
                     "rifFattura": linea[4],
                     "dataFattura": linea[2].replace("/", ""),
-                    "ragioneSociale": unidecode.unidecode(linea[6] + " " + " ".join(linea[5].split(" ")[0:2])),
+                    "ragioneSociale": unidecode.unidecode(linea[6] + " " + " ".join(linea[5].split()[0:2])),
                     "posDivide": str(len(linea[6]) + 1),
                     "cf": linea[7],
                     "importoTotale": 0,
@@ -48,10 +48,11 @@ def import_csv(csv_file_path: str) -> dict:
             else:
                 fatture[num_fattura]["importoTotale"] += importo
                 fatture[num_fattura]["righe"][linea[14]] = importo
-            logger.converter_logger.info("Importata fattura n. %s", num_fattura)
+            parent.log_dialog.log_text.AppendText("Importata fattura n. %s\n" % num_fattura)
+            wx.Yield()
     return fatture
 
-def import_xml(xml_file_path: str) -> dict:
+def import_xml(xml_file_path: str, parent) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
 
@@ -82,7 +83,7 @@ def import_xml(xml_file_path: str) -> dict:
             "tipoFattura": tipo_fattura,
             "rifFattura": fattura.get('protocollo_fatturatestata1'),
             "dataFattura": datetime.datetime.fromisoformat(fattura.get('data_fatturatestata')).strftime("%d%m%Y"),
-            "ragioneSociale": unidecode.unidecode(fattura.get('cognome_cliente') + ' ' + ' '.join(fattura.get('nome_cliente').split(' ')[0:2])),
+            "ragioneSociale": unidecode.unidecode(fattura.get('cognome_cliente') + ' ' + ' '.join(fattura.get('nome_cliente').split()[0:2])),
             "posDivide": str(len(fattura.get('cognome_cliente')) + 1),
             "cf": fattura.get('cf_piva_cliente'),
             "importoTotale": importo_totale,
@@ -90,35 +91,40 @@ def import_xml(xml_file_path: str) -> dict:
             "righe": righe,
         }
         fatture[num_fattura] = fattura_elem
-        logger.converter_logger.info("Importata fattura n. %s", num_fattura)
+        parent.log_dialog.log_text.AppendText("Importata fattura n. %s\n" % num_fattura)
+        wx.Yield()
     return fatture
 
 
-def convert(input_file_path: str, out_file_path: str):
+def convert(input_file_path: str, out_file_path: str, parent):
     """Output to a file the TRAF2000 records"""
 
     input_file_ext = utils.file_extension(input_file_path, (".xml", ".csv"))
     if input_file_ext == ".csv":
-        fatture = import_csv(input_file_path)
+        fatture = import_csv(input_file_path, parent)
 
     elif input_file_ext == ".xml":
-        fatture = import_xml(input_file_path)
+        fatture = import_xml(input_file_path, parent)
 
     with open(out_file_path, "w") as traf2000_file:
-        logger.note_credito_logger.info("Note di credito:")
+        parent.log_dialog.nc_text.AppendText("Note di credito:\n")
+        wx.Yield()
 
         for fattura in fatture.values():
             if fattura["tipoFattura"] != "Fattura" and fattura["tipoFattura"] != "Nota di credito":
-                logger.converter_logger.error("Errore: il documento %s può essere FATTURA o NOTA DI CREDITO", fattura["numFattura"])
+                parent.log_dialog.log_text.AppendText("Errore: il documento %s può essere FATTURA o NOTA DI CREDITO\n" % fattura["numFattura"])
+                wx.Yield()
                 continue
 
             if len(fattura["cf"]) != 16 and len(fattura["cf"]) == 11:
-                logger.converter_logger.error("Errore: il documento %s non ha cf/piva", fattura["numFattura"])
+                parent.log_dialog.log_text.AppendText("Errore: il documento %s non ha cf/piva\n" % fattura["numFattura"])
+                wx.Yield()
                 continue
 
             if fattura["tipoFattura"] == "Nota di credito":
                 # As for now this script doesn't handle "Note di credito"
-                logger.note_credito_logger.info(fattura["numFattura"])
+                parent.log_dialog.nc_text.AppendText(fattura["numFattura"]+"\n")
+                wx.Yield()
                 continue
 
             linea = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
@@ -236,7 +242,8 @@ def convert(input_file_path: str, out_file_path: str):
                 linea.append('S')  # TRF-RIF-FATTURA
             linea.append('S' + ' '*2 + 'S' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
             linea.append('\n')
-            logger.converter_logger.info("Creato record #0 per fattura n. %s", fattura["numFattura"])
+            parent.log_dialog.log_text.AppendText("Creato record #0 per fattura n. %s\n" % fattura["numFattura"])
+            wx.Yield()
 
             #RECORD 5 per Tessera Sanitaria
             linea.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
@@ -256,7 +263,8 @@ def convert(input_file_path: str, out_file_path: str):
             linea.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             linea.append(' ' + 'S' + ' '*76)  # TRF-SPESE-FUNEBRI + TRF-A21CO-PAGAM + FILLER + FILLER
             linea.append('\n')
-            logger.converter_logger.info("Creato record #5 per fattura n. %s", fattura["numFattura"])
+            parent.log_dialog.log_text.AppendText("Creato record #5 per fattura n. %s\n" % fattura["numFattura"])
+            wx.Yield()
 
             #RECORD 1 per num. doc. originale
             linea.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
@@ -275,10 +283,13 @@ def convert(input_file_path: str, out_file_path: str):
             linea.append(' '*8)  # TRF-CK-RCHARGE
             linea.append('0'*(15-len(fattura["numFattura"])) + fattura["numFattura"])  # TRF-XNUM-DOC-ORI
             linea.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
-            logger.converter_logger.info("Creato record #1 per fattura n. %s", fattura["numFattura"])
+            parent.log_dialog.log_text.AppendText("Creato record #1 per fattura n. %s\n" % fattura["numFattura"])
+            wx.Yield()
 
             linea = ''.join(linea) + '\n'
 
             traf2000_file.write(linea)
-            logger.converter_logger.info("Convertita fattura n. %s", fattura["numFattura"])
-        logger.converter_logger.info("Conversione terminata")
+            parent.log_dialog.log_text.AppendText("Convertita fattura n. %s\n" % fattura["numFattura"])
+            wx.Yield()
+        parent.log_dialog.log_text.AppendText("Conversione terminata")
+        wx.Yield()

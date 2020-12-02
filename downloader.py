@@ -9,14 +9,16 @@ import requests
 import requests_ntlm
 import openpyxl
 import PyPDF2
+import wx
 
-import logger
-
-def get_invoices_info(input_file_path: str) -> dict:
+def get_invoices_info(input_file_path: str) -> tuple:
     """extract invoices IDs and URLs from xlsx input file"""
     xlsx_file = openpyxl.load_workbook(input_file_path)
     sheet = xlsx_file.active
     invoices = dict()
+
+    owner_name = '_'.join(sheet["B1"].value.split()[2:])
+    print(owner_name)
 
     for i in range(1, sheet.max_row+1):
         invoice_id = sheet["I"+str(i)].value
@@ -30,8 +32,8 @@ def get_invoices_info(input_file_path: str) -> dict:
                 "good": None,
             }
             invoices[invoice_id] = invoice
-
-    return invoices
+    invoices_info = (owner_name, invoices)
+    return invoices_info
 
 def open_file(file_path):
     """open a file with the default software"""
@@ -41,13 +43,15 @@ def open_file(file_path):
         opener = "open" if sys.platform == "darwin" else "xdg-open"
         subprocess.call([opener, file_path])
 
-def download_invoices(input_file_path: str, output_file_path: str, username: str, password: str):
+def download_invoices(parent):
     """download invoices from CCSR"""
-    invoices = get_invoices_info(input_file_path)
+    invoices_info = get_invoices_info(parent.input_file_path)
+    invoices = invoices_info[1]
 
     session = requests.Session()
-    session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+username, password)
-    logger.downloader_logger.info("Inizio download fatture dal portale CCSR")
+    session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+parent.login_dlg.username.GetValue(), parent.login_dlg.password.GetValue())
+    parent.log_dialog.log_text.AppendText("Inizio download fatture dal portale CCSR\n")
+    wx.Yield()
 
     tmp_dir = tempfile.mkdtemp()
 
@@ -60,28 +64,39 @@ def download_invoices(input_file_path: str, output_file_path: str, username: str
             with open(tmp_dir+"/"+invoice_id+".pdf", "wb") as output_file:
                 output_file.write(resp.content)
                 invoice["path"] = output_file.name
-                print(invoice["path"])
                 try:
                     PyPDF2.PdfFileReader(open(invoice["path"], "rb"))
                 except (PyPDF2.utils.PdfReadError, OSError):
-                    logger.downloader_logger.error("fattura %s corrotta!", invoice_id)
+                    parent.log_dialog.log_text.AppendText("Errore: fattura %s corrotta!\n" % invoice_id)
+                    wx.Yield()
                     invoice["good"] = False
                 else:
                     downloaded_count += 1
-                    logger.downloader_logger.info("%d/%d scaricata fattura %s in %s", downloaded_count, invoices_count, invoice_id, invoice["path"])
+                    parent.log_dialog.log_text.AppendText("%d/%d scaricata fattura %s in %s\n" % (downloaded_count, invoices_count, invoice_id, invoice["path"]))
+                    wx.Yield()
                     invoice["good"] = True
         else:
-            logger.downloader_logger.error("impossibile scaricare fattura %s: %d", invoice_id, resp.status_code)
+            parent.log_dialog.log_text.AppendText("Errore: impossibile scaricare fattura %s: %d\n" % (invoice_id, resp.status_code))
+            wx.Yield()
             invoice["good"] = False
+
+    parent.output_pdf_dialog.SetFilename("fatture_%s.pdf" % invoices_info[0])
+
+    if parent.output_pdf_dialog.ShowModal() == wx.ID_OK:
+        parent.output_file_path = parent.output_pdf_dialog.GetPath()
+    else:
+        #TODO: avviso errore file output
+        return
 
     merger = PyPDF2.PdfFileMerger()
     for invoice in invoices.values():
         if invoice["good"]:
             merger.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
-    merger.write(output_file_path)
+    merger.write(parent.output_file_path)
 
-    open_file(output_file_path)
+    open_file(parent.output_file_path)
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    logger.downloader_logger.info("Download terminato. Il pdf contenente le fatture si trova in %s", output_file_path)
+    parent.log_dialog.log_text.AppendText("Download terminato. Il pdf contenente le fatture si trova in %s\n" % parent.output_file_path)
+    wx.Yield()

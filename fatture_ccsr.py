@@ -1,56 +1,31 @@
 """This utility is used for downloading or converting to TRAF2000 invoices from a .csv or .xml report file"""
 
-import logging
 import wx
 
 import downloader
 import traf2000_converter
 import exc
 import utils
-import logger
 
 DOWNLOAD_ACTION = 1
 CONVERT_ACTION = 2
-
-class LogHandler(logging.StreamHandler):
-    """logging stream handler"""
-    def __init__(self, textctrl):
-        logging.StreamHandler.__init__(self)
-        self.textctrl = textctrl
-
-    def emit(self, record):
-        """constructor"""
-        msg = self.format(record)
-        self.textctrl.WriteText(msg + "\n")
-        self.flush()
 
 class LogDialog(wx.Dialog):
     """logging panel"""
     def __init__(self, parent, title, action):
         super(LogDialog, self).__init__(parent, wx.ID_ANY, title)
-        if action == DOWNLOAD_ACTION:
-            self.logger = logger.downloader_logger
-        elif action == CONVERT_ACTION:
-            self.logger = logger.converter_logger
-        else:
-            raise exc.InvalidActionError(action)
-
-        log_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-        log_handler = LogHandler(log_text)
-        log_handler.setLevel(logging.INFO)
-        self.logger.addHandler(log_handler)
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.log_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
         log_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        log_sizer.Add(log_text, 0, wx.ALL, 2)
+        log_sizer.Add(self.log_text, 0, wx.ALL, 2)
+
+        self.log_text.Bind(wx.EVT_TEXT, self.on_text_update)
 
         if action == CONVERT_ACTION:
-            self.nc_logger = logger.note_credito_logger
-            nc_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-            nc_handler = LogHandler(nc_text)
-            self.nc_logger.addHandler(nc_handler)
-
-            log_sizer.Add(nc_text, 0, wx.ALL, 2)
+            self.nc_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+            log_sizer.Add(self.nc_text, 0, wx.ALL, 2)
 
         main_sizer.Add(log_sizer, 0, wx.ALL, 2)
         self.btn = wx.Button(self, wx.ID_OK, "Chiudi")
@@ -58,6 +33,11 @@ class LogDialog(wx.Dialog):
         main_sizer.Add(self.btn, 0, wx.ALL|wx.CENTER, 2)
 
         self.SetSizerAndFit(main_sizer)
+
+    def on_text_update(self, event):
+        """autoscroll on text update"""
+        self.ScrollPages(-1)
+        event.Skip()
 
 class LoginDialog(wx.Dialog):
     """login dialog for basic auth download"""
@@ -158,25 +138,23 @@ class FattureCCSRFrame(wx.Frame):
             print(handled_exception.args[0])
         if self.input_file_ext == ".xlsx":
             self.download_btn.Enable()
+            self.traf2000_btn.Disable()
         elif self.input_file_ext in (".csv", ".xml"):
             self.traf2000_btn.Enable()
+            self.download_btn.Disable()
         else:
+            self.download_btn.Disable()
             self.traf2000_btn.Disable()
 
     def btn_onclick(self, event):
         """event raised when a button is clicked"""
         btn_id = event.GetEventObject().GetId()
         if btn_id == DOWNLOAD_ACTION:
-            if self.output_pdf_dialog.ShowModal() == wx.ID_OK:
-                self.output_file_path = self.output_pdf_dialog.GetPath()
-            else:
-                #TODO: avviso errore file output
-                return
             self.login_dlg.ShowModal()
             if self.login_dlg.logged_id:
                 self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
                 self.log_dialog.Show()
-                downloader.download_invoices(self.input_file_path, self.output_file_path, self.login_dlg.username.GetValue(), self.login_dlg.password.GetValue())
+                downloader.download_invoices(self)
                 self.log_dialog.btn.Enable()
         elif btn_id == CONVERT_ACTION:
             if self.output_traf2000_dialog.ShowModal() == wx.ID_OK:
@@ -188,7 +166,7 @@ class FattureCCSRFrame(wx.Frame):
             self.log_dialog.Show()
             #TODO: error frame
             try:
-                traf2000_converter.convert(self.input_file_path, self.output_file_path)
+                traf2000_converter.convert(self.input_file_path, self.output_file_path, self)
             except exc.NoFileError as handled_exception:
                 print(handled_exception.args[0])
             except exc.NoFileExtensionError as handled_exception:
