@@ -18,7 +18,6 @@ def get_invoices_info(input_file_path: str) -> tuple:
     invoices = dict()
 
     owner_name = '_'.join(sheet["B1"].value.split()[2:])
-    print(owner_name)
 
     for i in range(1, sheet.max_row+1):
         invoice_id = sheet["I"+str(i)].value

@@ -6,12 +6,10 @@ import xml.etree.ElementTree
 import unidecode
 import wx
 
-import utils
-
-def import_csv(csv_file_path: str, parent) -> dict:
+def import_csv(parent) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
-    with open(csv_file_path, newline="") as csv_file:
+    with open(parent.input_file_path, newline="") as csv_file:
         lettore = csv.reader(csv_file, delimiter=",")
 
         for _ in range(4):
@@ -52,11 +50,11 @@ def import_csv(csv_file_path: str, parent) -> dict:
             wx.Yield()
     return fatture
 
-def import_xml(xml_file_path: str, parent) -> dict:
+def import_xml(parent) -> dict:
     """Return a dict containing the invoices info"""
     fatture = dict()
 
-    tree = xml.etree.ElementTree.parse(xml_file_path)
+    tree = xml.etree.ElementTree.parse(parent.input_file_path)
     root = tree.getroot()
 
     for fattura in root.iter('{STAT_FATTURATO_CTERZI}Dettagli'):
@@ -96,17 +94,22 @@ def import_xml(xml_file_path: str, parent) -> dict:
     return fatture
 
 
-def convert(input_file_path: str, out_file_path: str, parent):
+def convert(parent):
     """Output to a file the TRAF2000 records"""
 
-    input_file_ext = utils.file_extension(input_file_path, (".xml", ".csv"))
-    if input_file_ext == ".csv":
-        fatture = import_csv(input_file_path, parent)
+    if parent.input_file_ext == ".csv":
+        fatture = import_csv(parent)
 
-    elif input_file_ext == ".xml":
-        fatture = import_xml(input_file_path, parent)
+    elif parent.input_file_ext == ".xml":
+        fatture = import_xml(parent)
 
-    with open(out_file_path, "w") as traf2000_file:
+    if parent.output_traf2000_dialog.ShowModal() == wx.ID_OK:
+        parent.output_file_path = parent.output_traf2000_dialog.GetPath()
+    else:
+        #TODO: avviso errore file output
+        return
+
+    with open(parent.output_file_path, "w") as traf2000_file:
         parent.log_dialog.nc_text.AppendText("Note di credito:\n")
         wx.Yield()
 

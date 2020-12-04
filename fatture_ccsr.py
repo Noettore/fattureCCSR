@@ -1,33 +1,45 @@
 """This utility is used for downloading or converting to TRAF2000 invoices from a .csv or .xml report file"""
 
+import os
 import wx
 
 import downloader
 import traf2000_converter
 import exc
-import utils
 
 DOWNLOAD_ACTION = 1
 CONVERT_ACTION = 2
 
+def file_extension(file_path: str, allowed_ext: set = None) -> str:
+    """Return the file extension if that's in the allowed extension set"""
+    if file_path in (None, ""):
+        raise exc.NoFileError()
+    file_ext = os.path.splitext(file_path)[1]
+    if file_ext in (None, ""):
+        raise exc.NoFileExtensionError
+    if allowed_ext is not None and file_ext not in allowed_ext:
+        raise exc.WrongFileExtensionError
+    return file_ext
+
 class LogDialog(wx.Dialog):
     """logging panel"""
     def __init__(self, parent, title, action):
-        super(LogDialog, self).__init__(parent, wx.ID_ANY, title)
+        super(LogDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
-        self.log_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
+        self.log_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL|wx.EXPAND)
         log_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        log_sizer.Add(self.log_text, 0, wx.ALL, 2)
+        log_sizer.Add(self.log_text, 1, wx.ALL|wx.EXPAND, 2)
 
         self.log_text.Bind(wx.EVT_TEXT, self.on_text_update)
 
         if action == CONVERT_ACTION:
             self.nc_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-            log_sizer.Add(self.nc_text, 0, wx.ALL, 2)
+            self.nc_text.Bind(wx.EVT_TEXT, self.on_text_update)
+            log_sizer.Add(self.nc_text, 1, wx.ALL|wx.EXPAND, 2)
 
-        main_sizer.Add(log_sizer, 0, wx.ALL, 2)
+        main_sizer.Add(log_sizer, 1, wx.ALL|wx.EXPAND, 2)
         self.btn = wx.Button(self, wx.ID_OK, "Chiudi")
         self.btn.Disable()
         main_sizer.Add(self.btn, 0, wx.ALL|wx.CENTER, 2)
@@ -43,29 +55,29 @@ class LoginDialog(wx.Dialog):
     """login dialog for basic auth download"""
     def __init__(self, parent, title):
         """constructor"""
-        super(LoginDialog, self).__init__(parent, wx.ID_ANY, title)
+        super(LoginDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE)
 
         self.logged_id = False
 
         user_sizer = wx.BoxSizer(wx.HORIZONTAL)
         user_lbl = wx.StaticText(self, wx.ID_ANY, "Username:")
-        user_sizer.Add(user_lbl, 0, wx.ALL|wx.CENTER, 2)
+        user_sizer.Add(user_lbl, 0, wx.ALL|wx.CENTER|wx.EXPAND, 2)
         self.username = wx.TextCtrl(self, size=(265, -1))
-        user_sizer.Add(self.username, 0, wx.ALL, 2)
+        user_sizer.Add(self.username, 0, wx.ALL|wx.EXPAND, 2)
 
         pass_sizer = wx.BoxSizer(wx.HORIZONTAL)
         pass_lbl = wx.StaticText(self, wx.ID_ANY, "Password:")
-        pass_sizer.Add(pass_lbl, 0, wx.ALL|wx.CENTER, 2)
+        pass_sizer.Add(pass_lbl, 0, wx.ALL|wx.CENTER|wx.EXPAND, 2)
         self.password = wx.TextCtrl(self, size=(265, -1), style=wx.TE_PASSWORD|wx.TE_PROCESS_ENTER)
-        pass_sizer.Add(self.password, 0, wx.ALL, 2)
+        pass_sizer.Add(self.password, 0, wx.ALL|wx.EXPAND, 2)
 
         login_btn = wx.Button(self, label="Login")
         login_btn.SetDefault()
         login_btn.Bind(wx.EVT_BUTTON, self.on_login)
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
-        main_sizer.Add(user_sizer, 0, wx.ALL, 2)
-        main_sizer.Add(pass_sizer, 0, wx.ALL, 2)
+        main_sizer.Add(user_sizer, 1, wx.ALL|wx.EXPAND, 2)
+        main_sizer.Add(pass_sizer, 1, wx.ALL|wx.EXPAND, 2)
         main_sizer.Add(login_btn, 0, wx.ALL|wx.CENTER, 2)
 
         self.SetSizerAndFit(main_sizer)
@@ -129,7 +141,7 @@ class FattureCCSRFrame(wx.Frame):
         self.input_file_path = event.GetEventObject().GetPath()
         #TODO: error frame
         try:
-            self.input_file_ext = utils.file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
+            self.input_file_ext = file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
         except exc.NoFileError as handled_exception:
             print(handled_exception.args[0])
         except exc.NoFileExtensionError as handled_exception:
@@ -157,16 +169,11 @@ class FattureCCSRFrame(wx.Frame):
                 downloader.download_invoices(self)
                 self.log_dialog.btn.Enable()
         elif btn_id == CONVERT_ACTION:
-            if self.output_traf2000_dialog.ShowModal() == wx.ID_OK:
-                self.output_file_path = self.output_traf2000_dialog.GetPath()
-            else:
-                #TODO: avviso errore file output
-                return
             self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
             self.log_dialog.Show()
             #TODO: error frame
             try:
-                traf2000_converter.convert(self.input_file_path, self.output_file_path, self)
+                traf2000_converter.convert(self)
             except exc.NoFileError as handled_exception:
                 print(handled_exception.args[0])
             except exc.NoFileExtensionError as handled_exception:

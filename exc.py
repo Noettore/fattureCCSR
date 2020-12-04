@@ -3,7 +3,6 @@
 class FattureSanRossoreError(Exception):
     """Base class for other exceptions"""
 
-
 class FileError(FattureSanRossoreError):
     """Basic exception for errors raised by files"""
     def __init__(self, file_path, msg=None):
