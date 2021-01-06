@@ -1,12 +1,12 @@
-"""This utility is used for downloading or converting to TRAF2000 invoices from a .xlsx, .csv or .xml report file"""
+"""This utility is used for downloading or converting to TRAF2000 invoices from a CCSR .xlsx, .csv or .xml report file"""
 
 import os
 import tempfile
+import atexit
 import wx
 import wx.adv
 import requests
 import requests_ntlm
-import atexit
 
 import downloader
 import traf2000_converter
@@ -91,8 +91,6 @@ class LoginDialog(wx.Dialog):
 
     def disconnect(self):
         """close session and reset input fields"""
-        self.username.SetValue('')
-        self.password.SetValue('')
         self.GetParent().session.close()
         self.logged_in = False
 
@@ -103,6 +101,8 @@ class LoginDialog(wx.Dialog):
             session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+self.username.GetValue(), self.password.GetValue())
             if session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/').status_code == 200:
                 self.logged_in = True
+                self.username.SetValue('')
+                self.password.SetValue('')
                 self.Close()
 
 class FattureCCSRFrame(wx.Frame):
