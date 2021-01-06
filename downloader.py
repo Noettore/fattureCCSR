@@ -42,6 +42,8 @@ def open_file(file_path):
 
 def download_invoices(parent):
     """download invoices from CCSR"""
+    output_file_path = None
+
     invoices_info = get_invoices_info(parent.input_file_path)
     invoices = invoices_info[1]
 
@@ -78,7 +80,7 @@ def download_invoices(parent):
     parent.output_pdf_dialog.SetFilename("fatture_%s.pdf" % invoices_info[0])
 
     if parent.output_pdf_dialog.ShowModal() == wx.ID_OK:
-        parent.output_file_path = parent.output_pdf_dialog.GetPath()
+        output_file_path = parent.output_pdf_dialog.GetPath()
     else:
         #TODO: avviso errore file output
         return
@@ -87,11 +89,11 @@ def download_invoices(parent):
     for invoice in invoices.values():
         if invoice["good"]:
             merger.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
-    merger.write(parent.output_file_path)
+    merger.write(output_file_path)
 
-    open_file(parent.output_file_path)
+    open_file(output_file_path)
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 
-    parent.log_dialog.log_text.AppendText("Download terminato. Il pdf contenente le fatture si trova in %s\n" % parent.output_file_path)
+    parent.log_dialog.log_text.AppendText("Download terminato.\nIl pdf contenente le fatture si trova in %s\n" % output_file_path)
     wx.Yield()

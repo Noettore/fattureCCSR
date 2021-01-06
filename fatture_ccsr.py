@@ -6,6 +6,7 @@ import wx
 import wx.adv
 import requests
 import requests_ntlm
+import atexit
 
 import downloader
 import traf2000_converter
@@ -107,11 +108,13 @@ class LoginDialog(wx.Dialog):
 class FattureCCSRFrame(wx.Frame):
     """main application frame"""
     def __init__(self, parent, title):
+        atexit.register(self.exit_handler)
+
         self._initial_locale = wx.Locale(wx.LANGUAGE_DEFAULT, wx.LOCALE_LOAD_DEFAULT)
 
         self.input_file_path = None
         self.input_file_ext = None
-        self.output_file_path = None
+        self.input_files = list()
         self.log_dialog = None
         self.session = requests.Session()
 
@@ -195,62 +198,72 @@ class FattureCCSRFrame(wx.Frame):
         """event raised when a button is clicked"""
         btn_id = event.GetEventObject().GetId()
 
-        if btn_id == LOGIN_ACTION:
+        if btn_id not in (LOGIN_ACTION, LOGOUT_ACTION, DOWNLOAD_ACTION, CONVERT_ACTION):
+            #TODO: error
+            return
+        elif btn_id == LOGIN_ACTION:
             self.login_dlg.ShowModal()
             if self.login_dlg.logged_in:
                 self.enable_on_login()
+            return
         elif btn_id == LOGOUT_ACTION:
             self.disable_on_logout()
-        else:
-            if not self.login_dlg.logged_in:
-                #TODO: error
-                return None
+            return
+        elif not self.login_dlg.logged_in:
+            #TODO: error
+            return
 
-            start_date = self.start_date_picker.GetValue().Format("%d/%m/%Y")
-            end_date = self.end_date_picker.GetValue().Format("%d/%m/%Y")
-            input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format='
-            input_file_url += ('EXCELOPENXML' if btn_id == DOWNLOAD_ACTION else 'XML' if btn_id == CONVERT_ACTION else None)
+        start_date = self.start_date_picker.GetValue().Format("%d/%m/%Y")
+        end_date = self.end_date_picker.GetValue().Format("%d/%m/%Y")
+        input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format='
+        input_file_url += ('EXCELOPENXML' if btn_id == DOWNLOAD_ACTION else 'XML' if btn_id == CONVERT_ACTION else None)
 
-            downloaded_input_file = self.session.get(input_file_url)
-            if downloaded_input_file.status_code != 200:
-                #TODO: error
-                return None
+        downloaded_input_file = self.session.get(input_file_url)
+        if downloaded_input_file.status_code != 200:
+            #TODO: error
+            return
 
-            input_file_descriptor, self.input_file_path = tempfile.mkstemp(suffix=('.xlsx' if btn_id == DOWNLOAD_ACTION else '.xml' if btn_id == CONVERT_ACTION else None))
-            with open(input_file_descriptor, 'wb') as input_file:
-                input_file.write(downloaded_input_file.content)
+        input_file_descriptor, self.input_file_path = tempfile.mkstemp(suffix=('.xlsx' if btn_id == DOWNLOAD_ACTION else '.xml' if btn_id == CONVERT_ACTION else None))
+        self.input_files.append(self.input_file_path)
+        with open(input_file_descriptor, 'wb') as input_file:
+            input_file.write(downloaded_input_file.content)
 
+        try:
+            self.input_file_ext = file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
+        except exc.NoFileError as handled_exception:
+            print(handled_exception.args[0])
+            return
+        except exc.NoFileExtensionError as handled_exception:
+            print(handled_exception.args[0])
+            return
+        except exc.WrongFileExtensionError as handled_exception:
+            print(handled_exception.args[0])
+            return
+
+        if btn_id == DOWNLOAD_ACTION:
+            self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
+            self.log_dialog.Show()
+            downloader.download_invoices(self)
+            self.log_dialog.btn.Enable()
+
+        elif btn_id == CONVERT_ACTION:
+            self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
+            self.log_dialog.Show()
+            #TODO: error frame
             try:
-                self.input_file_ext = file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
+                traf2000_converter.convert(self)
             except exc.NoFileError as handled_exception:
                 print(handled_exception.args[0])
-                return
             except exc.NoFileExtensionError as handled_exception:
                 print(handled_exception.args[0])
-                return
             except exc.WrongFileExtensionError as handled_exception:
                 print(handled_exception.args[0])
-                return
+            self.log_dialog.btn.Enable()
 
-            if btn_id == DOWNLOAD_ACTION:
-                self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
-                self.log_dialog.Show()
-                downloader.download_invoices(self)
-                self.log_dialog.btn.Enable()
-
-            elif btn_id == CONVERT_ACTION:
-                self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
-                self.log_dialog.Show()
-                #TODO: error frame
-                try:
-                    traf2000_converter.convert(self)
-                except exc.NoFileError as handled_exception:
-                    print(handled_exception.args[0])
-                except exc.NoFileExtensionError as handled_exception:
-                    print(handled_exception.args[0])
-                except exc.WrongFileExtensionError as handled_exception:
-                    print(handled_exception.args[0])
-                self.log_dialog.btn.Enable()
+    def exit_handler(self):
+        """clean the environment befor exiting"""
+        for input_file in self.input_files:
+            os.remove(input_file)
 
 if __name__ == "__main__":
     app = wx.App()
