@@ -5,8 +5,6 @@ import os
 import subprocess
 import shutil
 import tempfile
-import requests
-import requests_ntlm
 import openpyxl
 import PyPDF2
 import wx
@@ -47,8 +45,6 @@ def download_invoices(parent):
     invoices_info = get_invoices_info(parent.input_file_path)
     invoices = invoices_info[1]
 
-    session = requests.Session()
-    session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+parent.login_dlg.username.GetValue(), parent.login_dlg.password.GetValue())
     parent.log_dialog.log_text.AppendText("Inizio download fatture dal portale CCSR\n")
     wx.Yield()
 
@@ -58,7 +54,7 @@ def download_invoices(parent):
     downloaded_count = 0
 
     for invoice_id, invoice in invoices.items():
-        resp = session.get(invoice["url"])
+        resp = parent.session.get(invoice["url"])
         if resp.status_code == 200:
             with open(tmp_dir+"/"+invoice_id+".pdf", "wb") as output_file:
                 output_file.write(resp.content)
