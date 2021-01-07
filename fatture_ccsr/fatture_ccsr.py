@@ -51,7 +51,10 @@ class LogDialog(wx.Dialog):
         self.btn.Disable()
         main_sizer.Add(self.btn, 0, wx.ALL|wx.CENTER, 2)
 
-        self.SetSizerAndFit(main_sizer)
+        self.SetSizer(main_sizer)
+        main_sizer.Fit(self)
+
+        self.Layout()
 
     def on_text_update(self, event):
         """autoscroll on text update"""
@@ -60,34 +63,45 @@ class LogDialog(wx.Dialog):
 
 class LoginDialog(wx.Dialog):
     """login dialog for basic auth download"""
-    def __init__(self, parent, title):
+    def __init__(self, *args, **kwds):
         """constructor"""
-        super(LoginDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE)
+        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE
+        wx.Dialog.__init__(self, *args, **kwds)
+        self.SetTitle("Login")
 
         self.logged_in = False
 
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
         user_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(user_sizer, 1, wx.ALL | wx.EXPAND, 2)
+
         user_lbl = wx.StaticText(self, wx.ID_ANY, "Username:")
-        user_sizer.Add(user_lbl, 0, wx.ALL|wx.CENTER|wx.EXPAND, 2)
-        self.username = wx.TextCtrl(self, size=(265, -1))
-        user_sizer.Add(self.username, 0, wx.ALL|wx.EXPAND, 2)
+        user_sizer.Add(user_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        self.username = wx.TextCtrl(self, wx.ID_ANY, "")
+        self.username.SetMinSize((250, -1))
+        user_sizer.Add(self.username, 0, wx.ALL | wx.EXPAND, 2)
 
         pass_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(pass_sizer, 1, wx.ALL | wx.EXPAND, 2)
+
         pass_lbl = wx.StaticText(self, wx.ID_ANY, "Password:")
-        pass_sizer.Add(pass_lbl, 0, wx.ALL|wx.CENTER|wx.EXPAND, 2)
-        self.password = wx.TextCtrl(self, size=(265, -1), style=wx.TE_PASSWORD|wx.TE_PROCESS_ENTER)
-        pass_sizer.Add(self.password, 0, wx.ALL|wx.EXPAND, 2)
+        pass_sizer.Add(pass_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
 
-        login_btn = wx.Button(self, label="Login")
-        login_btn.SetDefault()
-        login_btn.Bind(wx.EVT_BUTTON, self.on_login)
+        self.password = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
+        self.password.SetMinSize((250, -1))
+        pass_sizer.Add(self.password, 0, wx.ALL | wx.EXPAND, 2)
 
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
-        main_sizer.Add(user_sizer, 1, wx.ALL|wx.EXPAND, 2)
-        main_sizer.Add(pass_sizer, 1, wx.ALL|wx.EXPAND, 2)
-        main_sizer.Add(login_btn, 0, wx.ALL|wx.CENTER, 2)
+        self.login_btn = wx.Button(self, wx.ID_ANY, "Login")
+        self.login_btn.SetFocus()
+        self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
+        main_sizer.Add(self.login_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
-        self.SetSizerAndFit(main_sizer)
+        self.SetSizer(main_sizer)
+        main_sizer.Fit(self)
+
+        self.Layout()
 
     def disconnect(self):
         """close session and reset input fields"""
@@ -107,8 +121,12 @@ class LoginDialog(wx.Dialog):
 
 class FattureCCSRFrame(wx.Frame):
     """main application frame"""
-    def __init__(self, parent, title):
+    def __init__(self, *args, **kwds):
         atexit.register(self.exit_handler)
+
+        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE | wx.FULL_REPAINT_ON_RESIZE | wx.TAB_TRAVERSAL
+        wx.Frame.__init__(self, *args, **kwds)
+        self.SetTitle("fattureCCSR")
 
         self._initial_locale = wx.Locale(wx.LANGUAGE_DEFAULT, wx.LOCALE_LOAD_DEFAULT)
 
@@ -118,60 +136,65 @@ class FattureCCSRFrame(wx.Frame):
         self.log_dialog = None
         self.session = requests.Session()
 
-        super(FattureCCSRFrame, self).__init__(parent, wx.ID_ANY, title, size=(520, 180))
-        panel = wx.Panel(self)
+        self.panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_NONE | wx.FULL_REPAINT_ON_RESIZE | wx.TAB_TRAVERSAL)
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
-        date_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
 
-        self.login_dlg = LoginDialog(self, "Inserisci le credenziali di login al portale della CCSR")
-        self.output_traf2000_dialog = wx.FileDialog(panel, "Scegli dove salvare il file TRAF2000", defaultFile="TRAF2000", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
-        self.output_pdf_dialog = wx.FileDialog(panel, "Scegli dove salvare il .pdf con le fatture scaricate", defaultFile="fatture.pdf", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        title_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Utility Fatture Casa di Cura San Rossore")
+        title_lbl.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD, 0, ""))
+        self.main_sizer.Add(title_lbl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
-        title_text = wx.StaticText(panel, wx.ID_ANY, "Utility Fatture Casa di Cura San Rossore")
-        title_text.SetFont(wx.Font(10, wx.FONTFAMILY_DEFAULT, wx.FONTSTYLE_NORMAL, wx.FONTWEIGHT_BOLD))
+        desc_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Effettua il login poi seleziona le date di inizio e fine periodo delle fatture da gestire ed esegui un'azione")
+        self.main_sizer.Add(desc_lbl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
-        desc_text = wx.StaticText(panel, wx.ID_ANY, "Effettua il login poi seleziona le date di inizio e fine periodo delle fatture da gestire ed esegui un'azione")
+        self.login_dlg = LoginDialog(self)
+        self.output_traf2000_dialog = wx.FileDialog(self.panel, "Scegli dove salvare il file TRAF2000", defaultFile="TRAF2000", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
+        self.output_pdf_dialog = wx.FileDialog(self.panel, "Scegli dove salvare il .pdf con le fatture scaricate", defaultFile="fatture.pdf", style=wx.FD_SAVE|wx.FD_OVERWRITE_PROMPT)
 
-        start_date_lbl = wx.StaticText(self, wx.ID_ANY, "Dal:")
-        end_date_lbl = wx.StaticText(self, wx.ID_ANY, "Al:")
-        self.start_date_picker = wx.adv.DatePickerCtrl(panel, dt=wx.DateTime.Today().SetDay(1))
-        self.end_date_picker = wx.adv.DatePickerCtrl(panel, dt=wx.DateTime.Today())
-        date_sizer.Add(start_date_lbl, 0, wx.ALL|wx.CENTER, 2)
-        date_sizer.Add(self.start_date_picker, 1, wx.ALL|wx.CENTER, 2)
-        date_sizer.Add(end_date_lbl, 0, wx.ALL|wx.CENTER, 2)
-        date_sizer.Add(self.end_date_picker, 1, wx.ALL|wx.CENTER, 2)
-        self.start_date_picker.Disable()
-        self.end_date_picker.Disable()
-
-        self.login_btn = wx.Button(panel, LOGIN_ACTION, "Login")
-        self.login_btn.SetDefault()
+        self.login_btn = wx.Button(self.panel, LOGIN_ACTION, "Login")
+        self.login_btn.SetFocus()
         self.login_btn.Bind(wx.EVT_BUTTON, self.btn_onclick)
+        self.main_sizer.Add(self.login_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
-        self.logout_btn = wx.Button(panel, LOGOUT_ACTION, "Logout")
+        self.logout_btn = wx.Button(self.panel, LOGOUT_ACTION, "Logout")
         self.logout_btn.Hide()
         self.logout_btn.Bind(wx.EVT_BUTTON, self.btn_onclick)
+        self.main_sizer.Add(self.logout_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
-        self.download_btn = wx.Button(panel, DOWNLOAD_ACTION, "Scarica Fatture")
-        btn_sizer.Add(self.download_btn, 0, wx.ALL|wx.CENTER, 2)
+        date_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.main_sizer.Add(date_sizer, 0, wx.ALL | wx.EXPAND, 2)
+
+        start_date_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Dal")
+        date_sizer.Add(start_date_lbl, 0, wx.ALL, 2)
+
+        self.start_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today().SetDay(1))
+        self.start_date_picker.Enable(False)
+        date_sizer.Add(self.start_date_picker, 1, wx.ALL, 2)
+
+        end_date_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Al")
+        date_sizer.Add(end_date_lbl, 0, wx.ALL, 2)
+
+        self.end_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today())
+        self.end_date_picker.Enable(False)
+        date_sizer.Add(self.end_date_picker, 1, wx.ALL, 2)
+
+        action_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.main_sizer.Add(action_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
+
+        self.download_btn = wx.Button(self.panel, DOWNLOAD_ACTION, "Scarica Fatture")
+        self.download_btn.Enable(False)
         self.download_btn.Bind(wx.EVT_BUTTON, self.btn_onclick)
-        self.download_btn.Disable()
+        action_sizer.Add(self.download_btn, 0, wx.ALL, 2)
 
-        self.traf2000_btn = wx.Button(panel, CONVERT_ACTION, "Genera TRAF2000")
-        btn_sizer.Add(self.traf2000_btn, 0, wx.ALL|wx.CENTER, 2)
+        self.traf2000_btn = wx.Button(self.panel, CONVERT_ACTION, "Genera TRAF2000")
+        self.traf2000_btn.Enable(False)
         self.traf2000_btn.Bind(wx.EVT_BUTTON, self.btn_onclick)
-        self.traf2000_btn.Disable()
+        action_sizer.Add(self.traf2000_btn, 0, wx.ALL, 2)
 
-        self.main_sizer.Add(title_text, 0, wx.ALL|wx.CENTER, 2)
-        self.main_sizer.Add(desc_text, 0, wx.ALL|wx.CENTER, 2)
-        self.main_sizer.Add(self.login_btn, 0, wx.ALL|wx.CENTER, 4)
-        self.main_sizer.Add(self.logout_btn, 0, wx.ALL|wx.CENTER, 4)
-        self.main_sizer.Add(date_sizer, 0, wx.ALL|wx.EXPAND, 2)
-        self.main_sizer.Add(btn_sizer, 0, wx.ALL|wx.CENTER, 2)
+        self.panel.SetSizer(self.main_sizer)
 
-        panel.SetSizerAndFit(self.main_sizer)
-
-        self.Show()
+        self.main_sizer.Fit(self)
+        self.Layout()
+        self.Centre()
 
     def enable_on_login(self):
         """enable and show what needed after login"""
@@ -265,7 +288,16 @@ class FattureCCSRFrame(wx.Frame):
         for input_file in self.input_files:
             os.remove(input_file)
 
+
+class FattureCCSR(wx.App):
+    """main app"""
+    def OnInit(self): # pylint: disable=invalid-name
+        """execute on app initialization"""
+        self.fatture_ccsr_frame = FattureCCSRFrame(None, wx.ID_ANY, "") # pylint: disable=attribute-defined-outside-init
+        self.SetTopWindow(self.fatture_ccsr_frame)
+        self.fatture_ccsr_frame.Show()
+        return True
+
 if __name__ == "__main__":
-    app = wx.App()
-    FattureCCSRFrame(None, "Utility FattureCCSR")
-    app.MainLoop()
+    fattureCCSR = FattureCCSR(0)
+    fattureCCSR.MainLoop()
