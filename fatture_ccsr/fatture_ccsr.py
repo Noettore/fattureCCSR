@@ -3,7 +3,6 @@
 import os
 import sys
 import subprocess
-import tempfile
 import atexit
 import wx
 import wx.adv
@@ -12,23 +11,11 @@ import requests_ntlm
 
 import downloader
 import traf2000_converter
-import exc
 
 LOGIN_ACTION = 0
 LOGOUT_ACTION = 1
 DOWNLOAD_ACTION = 10
 CONVERT_ACTION = 20
-
-def file_extension(file_path: str, allowed_ext: set = None) -> str:
-    """Return the file extension if that's in the allowed extension set"""
-    if file_path in (None, ""):
-        raise exc.NoFileError()
-    file_ext = os.path.splitext(file_path)[1]
-    if file_ext in (None, ""):
-        raise exc.NoFileExtensionError
-    if allowed_ext is not None and file_ext not in allowed_ext:
-        raise exc.WrongFileExtensionError
-    return file_ext
 
 class FattureCCSRFrame(wx.Frame):
     """main application frame"""
@@ -41,8 +28,6 @@ class FattureCCSRFrame(wx.Frame):
 
         self._initial_locale = wx.Locale(wx.LANGUAGE_DEFAULT, wx.LOCALE_LOAD_DEFAULT)
 
-        self.input_file_path = None
-        self.input_file_ext = None
         self.input_files = list()
         self.log_dialog = None
         self.session = requests.Session()
@@ -133,66 +118,28 @@ class FattureCCSRFrame(wx.Frame):
         btn_id = event.GetEventObject().GetId()
 
         if btn_id not in (LOGIN_ACTION, LOGOUT_ACTION, DOWNLOAD_ACTION, CONVERT_ACTION):
-            #TODO: error
-            return
+            pass
         elif btn_id == LOGIN_ACTION:
             self.login_dlg.ShowModal()
             if self.login_dlg.logged_in:
                 self.enable_on_login()
-            return
+
         elif btn_id == LOGOUT_ACTION:
             self.disable_on_logout()
-            return
+
         elif not self.login_dlg.logged_in:
-            #TODO: error
-            return
+            pass
 
-        start_date = self.start_date_picker.GetValue().Format("%d/%m/%Y")
-        end_date = self.end_date_picker.GetValue().Format("%d/%m/%Y")
-        input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format='
-        input_file_url += ('EXCELOPENXML' if btn_id == DOWNLOAD_ACTION else 'XML' if btn_id == CONVERT_ACTION else None)
-
-        downloaded_input_file = self.session.get(input_file_url)
-        if downloaded_input_file.status_code != 200:
-            #TODO: error
-            return
-
-        input_file_descriptor, self.input_file_path = tempfile.mkstemp(suffix=('.xlsx' if btn_id == DOWNLOAD_ACTION else '.xml' if btn_id == CONVERT_ACTION else None))
-        self.input_files.append(self.input_file_path)
-        with open(input_file_descriptor, 'wb') as input_file:
-            input_file.write(downloaded_input_file.content)
-
-        try:
-            self.input_file_ext = file_extension(self.input_file_path, (".xml", ".csv", ".xlsx"))
-        except exc.NoFileError as handled_exception:
-            print(handled_exception.args[0])
-            return
-        except exc.NoFileExtensionError as handled_exception:
-            print(handled_exception.args[0])
-            return
-        except exc.WrongFileExtensionError as handled_exception:
-            print(handled_exception.args[0])
-            return
-
-        if btn_id == DOWNLOAD_ACTION:
+        elif btn_id == DOWNLOAD_ACTION:
             self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
             self.log_dialog.Show()
             downloader.download_invoices(self)
             self.log_dialog.close_btn.Enable()
-            self.log_dialog.open_file_btn.Enable()
 
         elif btn_id == CONVERT_ACTION:
             self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
             self.log_dialog.Show()
-            #TODO: error frame
-            try:
-                traf2000_converter.convert(self)
-            except exc.NoFileError as handled_exception:
-                print(handled_exception.args[0])
-            except exc.NoFileExtensionError as handled_exception:
-                print(handled_exception.args[0])
-            except exc.WrongFileExtensionError as handled_exception:
-                print(handled_exception.args[0])
+            traf2000_converter.convert(self)
             self.log_dialog.close_btn.Enable()
 
     def exit_handler(self):

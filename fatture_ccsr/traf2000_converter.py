@@ -2,9 +2,28 @@
 
 import datetime
 import csv
+import tempfile
 import xml.etree.ElementTree
 import unidecode
 import wx
+
+def download_input_file(parent):
+    """download input file"""
+    start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
+    end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
+    input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=XML'
+    downloaded_input_file = parent.session.get(input_file_url)
+    if downloaded_input_file.status_code != 200:
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+        parent.log_dialog.log_text.AppendText("ERRORE: impossibile scaricare il file di input.\nControllare la connessione ad internet e l'operatività del portale CCSR. Code %d\n" % downloaded_input_file.status_code)
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        wx.Yield()
+        return
+
+    input_file_descriptor, parent.input_file_path = tempfile.mkstemp(suffix='.xml')
+    parent.input_files.append(parent.input_file_path)
+    with open(input_file_descriptor, 'wb') as input_file:
+        input_file.write(downloaded_input_file.content)
 
 def import_csv(parent) -> dict:
     """Return a dict containing the invoices info"""
@@ -98,16 +117,19 @@ def convert(parent):
     """Output to a file the TRAF2000 records"""
     output_file_path = None
 
-    if parent.input_file_ext == ".csv":
-        invoices = import_csv(parent)
+    parent.log_dialog.log_text.AppendText("Download file input\n")
+    wx.Yield()
+    download_input_file(parent)
 
-    elif parent.input_file_ext == ".xml":
-        invoices = import_xml(parent)
+    invoices = import_xml(parent)
 
     if parent.output_traf2000_dialog.ShowModal() == wx.ID_OK:
         output_file_path = parent.output_traf2000_dialog.GetPath()
     else:
-        #TODO: avviso errore file output
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+        parent.log_dialog.log_text.AppendText("ERRORE: non è stato selezionato il file di output del tracciato.\n")
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        wx.Yield()
         return
 
     with open(output_file_path, "w") as traf2000_file:
@@ -116,12 +138,16 @@ def convert(parent):
 
         for invoice in invoices.values():
             if invoice["tipoFattura"] != "Fattura" and invoice["tipoFattura"] != "Nota di credito":
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
                 parent.log_dialog.log_text.AppendText("Errore: il documento %s può essere FATTURA o NOTA DI CREDITO\n" % invoice["numFattura"])
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
                 wx.Yield()
                 continue
 
             if len(invoice["cf"]) != 16 and len(invoice["cf"]) == 11:
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
                 parent.log_dialog.log_text.AppendText("Errore: il documento %s non ha cf/piva\n" % invoice["numFattura"])
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
                 wx.Yield()
                 continue
 
@@ -295,5 +321,8 @@ def convert(parent):
             traf2000_file.write(line)
             parent.log_dialog.log_text.AppendText("Convertita fattura n. %s\n" % invoice["numFattura"])
             wx.Yield()
+
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.BLACK, font=wx.Font(wx.FontInfo(8).Bold())))
         parent.log_dialog.log_text.AppendText("Conversione terminata.\nTracciato TRAF2000 salvato in %s\n" % output_file_path)
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
         wx.Yield()
