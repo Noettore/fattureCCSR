@@ -93,7 +93,7 @@ def download_invoices(parent):
             invoice["good"] = False
 
     parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.BLACK, font=wx.Font(wx.FontInfo(8).Bold())))
-    parent.log_dialog.log_text.AppendText("Download terminato.")
+    parent.log_dialog.log_text.AppendText("Download terminato.\n")
     parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
     wx.Yield()
 
