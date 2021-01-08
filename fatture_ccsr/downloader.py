@@ -1,8 +1,5 @@
 """ask for an input file (.xlsx) and an output file (.pdf) and downloads and unite every invoice"""
 
-import sys
-import os
-import subprocess
 import shutil
 import tempfile
 import openpyxl
@@ -31,14 +28,6 @@ def get_invoices_info(input_file_path: str) -> tuple:
             invoices[invoice_id] = invoice
     invoices_info = (owner_name, invoices)
     return invoices_info
-
-def open_file(file_path):
-    """open a file with the default software"""
-    if sys.platform == "win32":
-        os.startfile(file_path) # pylint: disable=maybe-no-member
-    else:
-        opener = "open" if sys.platform == "darwin" else "xdg-open"
-        subprocess.call([opener, file_path])
 
 def download_invoices(parent):
     """download invoices from CCSR"""
@@ -90,8 +79,6 @@ def download_invoices(parent):
         if invoice["good"]:
             merger.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
     merger.write(output_file_path)
-
-    open_file(output_file_path)
 
     shutil.rmtree(tmp_dir, ignore_errors=True)
 

@@ -1,6 +1,8 @@
 """This utility is used for downloading or converting to TRAF2000 invoices from a CCSR .xlsx, .csv or .xml report file"""
 
 import os
+import sys
+import subprocess
 import tempfile
 import atexit
 import wx
@@ -27,97 +29,6 @@ def file_extension(file_path: str, allowed_ext: set = None) -> str:
     if allowed_ext is not None and file_ext not in allowed_ext:
         raise exc.WrongFileExtensionError
     return file_ext
-
-class LogDialog(wx.Dialog):
-    """logging panel"""
-    def __init__(self, parent, title, action):
-        super(LogDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
-
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
-
-        self.log_text = wx.TextCtrl(self, wx.ID_ANY, size=(500, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL|wx.EXPAND)
-        log_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        log_sizer.Add(self.log_text, 1, wx.ALL|wx.EXPAND, 2)
-
-        self.log_text.Bind(wx.EVT_TEXT, self.on_text_update)
-
-        if action == CONVERT_ACTION:
-            self.nc_text = wx.TextCtrl(self, wx.ID_ANY, size=(300, 200), style=wx.TE_MULTILINE|wx.TE_READONLY|wx.HSCROLL)
-            self.nc_text.Bind(wx.EVT_TEXT, self.on_text_update)
-            log_sizer.Add(self.nc_text, 1, wx.ALL|wx.EXPAND, 2)
-
-        main_sizer.Add(log_sizer, 1, wx.ALL|wx.EXPAND, 2)
-        self.btn = wx.Button(self, wx.ID_OK, "Chiudi")
-        self.btn.Disable()
-        main_sizer.Add(self.btn, 0, wx.ALL|wx.CENTER, 2)
-
-        self.SetSizer(main_sizer)
-        main_sizer.Fit(self)
-
-        self.Layout()
-
-    def on_text_update(self, event):
-        """autoscroll on text update"""
-        self.ScrollPages(-1)
-        event.Skip()
-
-class LoginDialog(wx.Dialog):
-    """login dialog for basic auth download"""
-    def __init__(self, *args, **kwds):
-        """constructor"""
-        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE
-        wx.Dialog.__init__(self, *args, **kwds)
-        self.SetTitle("Login")
-
-        self.logged_in = False
-
-        main_sizer = wx.BoxSizer(wx.VERTICAL)
-
-        user_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        main_sizer.Add(user_sizer, 1, wx.ALL | wx.EXPAND, 2)
-
-        user_lbl = wx.StaticText(self, wx.ID_ANY, "Username:")
-        user_sizer.Add(user_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
-
-        self.username = wx.TextCtrl(self, wx.ID_ANY, "")
-        self.username.SetMinSize((250, -1))
-        user_sizer.Add(self.username, 0, wx.ALL | wx.EXPAND, 2)
-
-        pass_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        main_sizer.Add(pass_sizer, 1, wx.ALL | wx.EXPAND, 2)
-
-        pass_lbl = wx.StaticText(self, wx.ID_ANY, "Password:")
-        pass_sizer.Add(pass_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
-
-        self.password = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
-        self.password.SetMinSize((250, -1))
-        pass_sizer.Add(self.password, 0, wx.ALL | wx.EXPAND, 2)
-
-        self.login_btn = wx.Button(self, wx.ID_ANY, "Login")
-        self.login_btn.SetFocus()
-        self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
-        main_sizer.Add(self.login_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
-
-        self.SetSizer(main_sizer)
-        main_sizer.Fit(self)
-
-        self.Layout()
-
-    def disconnect(self):
-        """close session and reset input fields"""
-        self.GetParent().session.close()
-        self.logged_in = False
-
-    def on_login(self, _):
-        """check credentials and login"""
-        if self.username.GetValue() not in ("", None) and self.password.GetValue() not in ("", None):
-            session = self.GetParent().session
-            session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+self.username.GetValue(), self.password.GetValue())
-            if session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/').status_code == 200:
-                self.logged_in = True
-                self.username.SetValue('')
-                self.password.SetValue('')
-                self.Close()
 
 class FattureCCSRFrame(wx.Frame):
     """main application frame"""
@@ -267,7 +178,8 @@ class FattureCCSRFrame(wx.Frame):
             self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
             self.log_dialog.Show()
             downloader.download_invoices(self)
-            self.log_dialog.btn.Enable()
+            self.log_dialog.close_btn.Enable()
+            self.log_dialog.open_file_btn.Enable()
 
         elif btn_id == CONVERT_ACTION:
             self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
@@ -281,13 +193,122 @@ class FattureCCSRFrame(wx.Frame):
                 print(handled_exception.args[0])
             except exc.WrongFileExtensionError as handled_exception:
                 print(handled_exception.args[0])
-            self.log_dialog.btn.Enable()
+            self.log_dialog.close_btn.Enable()
 
     def exit_handler(self):
         """clean the environment befor exiting"""
         for input_file in self.input_files:
             os.remove(input_file)
 
+class LogDialog(wx.Dialog):
+    """logging panel"""
+    def __init__(self, parent, title, action):
+        super(LogDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        log_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(log_sizer, 1, wx.ALL | wx.EXPAND, 2)
+
+        self.log_text = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.HSCROLL | wx.TE_MULTILINE | wx.TE_READONLY)
+        self.log_text.SetMinSize((500, 200))
+        self.log_text.Bind(wx.EVT_TEXT, self.on_text_update)
+        log_sizer.Add(self.log_text, 0, wx.ALL | wx.EXPAND, 2)
+
+        btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(btn_sizer, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
+
+        self.close_btn = wx.Button(self, wx.ID_OK, "Chiudi")
+        self.close_btn.Enable(False)
+        btn_sizer.Add(self.close_btn, 0, wx.ALL, 2)
+
+        if action == CONVERT_ACTION:
+            self.nc_text = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.HSCROLL | wx.TE_MULTILINE | wx.TE_READONLY)
+            self.nc_text.SetMinSize((250, 200))
+            log_sizer.Add(self.nc_text, 0, wx.ALL | wx.EXPAND, 2)
+
+        elif action == DOWNLOAD_ACTION:
+            self.open_file_btn = wx.Button(self, wx.ID_ANY, "Apri pdf")
+            self.open_file_btn.Bind(wx.EVT_BUTTON, self.open_pdf)
+            self.open_file_btn.Enable(False)
+            btn_sizer.Add(self.open_file_btn, 0, wx.ALL, 2)
+
+        self.SetSizer(main_sizer)
+        main_sizer.Fit(self)
+
+        self.Layout()
+
+    def on_text_update(self, event):
+        """autoscroll on text update"""
+        self.ScrollPages(-1)
+        event.Skip()
+
+    def open_pdf(self, _):
+        """open a file with the default software"""
+        file_path = self.GetParent().output_pdf_dialog.GetPath()
+        if sys.platform == "win32":
+            os.startfile(file_path) # pylint: disable=maybe-no-member
+        else:
+            opener = "open" if sys.platform == "darwin" else "xdg-open"
+            subprocess.call([opener, file_path])
+
+class LoginDialog(wx.Dialog):
+    """login dialog for basic auth download"""
+    def __init__(self, *args, **kwds):
+        """constructor"""
+        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE
+        wx.Dialog.__init__(self, *args, **kwds)
+        self.SetTitle("Login")
+
+        self.logged_in = False
+
+        main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        user_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(user_sizer, 1, wx.ALL | wx.EXPAND, 2)
+
+        user_lbl = wx.StaticText(self, wx.ID_ANY, "Username:")
+        user_sizer.Add(user_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        self.username = wx.TextCtrl(self, wx.ID_ANY, "")
+        self.username.SetMinSize((250, -1))
+        user_sizer.Add(self.username, 0, wx.ALL | wx.EXPAND, 2)
+
+        pass_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        main_sizer.Add(pass_sizer, 1, wx.ALL | wx.EXPAND, 2)
+
+        pass_lbl = wx.StaticText(self, wx.ID_ANY, "Password:")
+        pass_sizer.Add(pass_lbl, 0, wx.ALIGN_CENTER_VERTICAL | wx.ALL, 2)
+
+        self.password = wx.TextCtrl(self, wx.ID_ANY, "", style=wx.TE_PASSWORD | wx.TE_PROCESS_ENTER)
+        self.password.SetMinSize((250, -1))
+        pass_sizer.Add(self.password, 0, wx.ALL | wx.EXPAND, 2)
+
+        self.login_btn = wx.Button(self, wx.ID_ANY, "Login")
+        self.login_btn.SetFocus()
+        self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
+        main_sizer.Add(self.login_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
+
+        self.SetSizer(main_sizer)
+        main_sizer.Fit(self)
+
+        self.Layout()
+
+    def disconnect(self):
+        """close session and reset input fields"""
+        self.GetParent().session.close()
+        self.logged_in = False
+
+    def on_login(self, _):
+        """check credentials and login"""
+        if self.username.GetValue() not in ("", None) and self.password.GetValue() not in ("", None):
+            session = self.GetParent().session
+            session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+self.username.GetValue(), self.password.GetValue())
+            if session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/').status_code == 200:
+                self.logged_in = True
+                self.username.SetValue('')
+                self.password.SetValue('')
+                self.Close()
 
 class FattureCCSR(wx.App):
     """main app"""
