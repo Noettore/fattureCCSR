@@ -131,13 +131,13 @@ class FattureCCSRFrame(wx.Frame):
             pass
 
         elif btn_id == DOWNLOAD_ACTION:
-            self.log_dialog = LogDialog(self, "Download delle fatture dal portale CCSR", DOWNLOAD_ACTION)
+            self.log_dialog = LogDialog(self, action = DOWNLOAD_ACTION)
             self.log_dialog.Show()
             downloader.download_invoices(self)
             self.log_dialog.close_btn.Enable()
 
         elif btn_id == CONVERT_ACTION:
-            self.log_dialog = LogDialog(self, "Conversione delle fatture in TRAF2000", CONVERT_ACTION)
+            self.log_dialog = LogDialog(self, action = CONVERT_ACTION)
             self.log_dialog.Show()
             traf2000_converter.convert(self)
             self.log_dialog.close_btn.Enable()
@@ -149,8 +149,12 @@ class FattureCCSRFrame(wx.Frame):
 
 class LogDialog(wx.Dialog):
     """logging panel"""
-    def __init__(self, parent, title, action):
-        super(LogDialog, self).__init__(parent, wx.ID_ANY, title, style=wx.DEFAULT_DIALOG_STYLE|wx.RESIZE_BORDER)
+    def __init__(self, *args, **kwds):
+        kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_DIALOG_STYLE | wx.RESIZE_BORDER
+        action = kwds.pop('action', -1)
+
+        wx.Dialog.__init__(self, *args, **kwds)
+        self.SetTitle("Log")
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
 
