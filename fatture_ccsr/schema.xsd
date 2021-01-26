@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" attributeFormDefault="unqualified" elementFormDefault="qualified" targetNamespace="STAT_FATTURATO_CTERZI" xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="Report">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="FatturaTestata">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Dettagli_Collection">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element maxOccurs="unbounded" name="Dettagli">
+                      <xs:complexType>
+                        <xs:sequence>
+                          <xs:element name="Tablix7">
+                            <xs:complexType>
+                              <xs:sequence>
+                                <xs:element name="Dettagli2_Collection">
+                                  <xs:complexType>
+                                    <xs:sequence>
+                                      <xs:element maxOccurs="unbounded" name="Dettagli2">
+                                        <xs:complexType>
+                                          <xs:attribute name="descrizione_fatturariga1" type="xs:string" use="required" />
+                                          <xs:attribute name="prezzounitario_fatturariga1" type="xs:decimal" use="required" />
+                                        </xs:complexType>
+                                      </xs:element>
+                                    </xs:sequence>
+                                  </xs:complexType>
+                                </xs:element>
+                              </xs:sequence>
+                              <xs:attribute name="Textbox5" type="xs:decimal" use="required" />
+                            </xs:complexType>
+                          </xs:element>
+                        </xs:sequence>
+                        <xs:attribute name="codice_fatturaattivatipo" type="xs:string" use="required" />
+                        <xs:attribute name="protocollo_fatturatestata" type="xs:string" use="required" />
+                        <xs:attribute name="data_fatturatestata" type="xs:dateTime" use="required" />
+                        <xs:attribute name="cartellaclinica" type="xs:string" use="required" />
+                        <xs:attribute name="protocollo_fatturatestata1" type="xs:string" use="required" />
+                        <xs:attribute name="nome_cliente" type="xs:string" use="required" />
+                        <xs:attribute name="cognome_cliente" type="xs:string" use="required" />
+                        <xs:attribute name="cf_piva_cliente" type="xs:string" use="required" />
+                        <xs:attribute name="fat_ndc" type="xs:string" use="required" />
+                        <xs:attribute name="pagante" type="xs:string" use="required" />
+                        <xs:attribute name="denorm_importototale_fatturatestata" type="xs:decimal" use="required" />
+                        <xs:attribute name="denorm_importopagato_fatturatestata" type="xs:decimal" use="required" />
+                        <xs:attribute name="denorm_importoresiduo_fatturatestata" type="xs:decimal" use="required" />
+                        <xs:attribute name="operatore" type="xs:string" use="required" />
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+          </xs:complexType>
+        </xs:element>
+        <xs:element name="Tablix2">
+          <xs:complexType>
+            <xs:sequence>
+              <xs:element name="Dettagli1_Collection">
+                <xs:complexType>
+                  <xs:sequence>
+                    <xs:element maxOccurs="unbounded" name="Dettagli1">
+                      <xs:complexType>
+                        <xs:attribute name="codice_fatturaattivatipo1" type="xs:string" use="required" />
+                        <xs:attribute name="Textbox39" type="xs:unsignedByte" use="required" />
+                        <xs:attribute name="denorm_importototale_fatturatestata1" type="xs:decimal" use="required" />
+                        <xs:attribute name="denorm_importopagato_fatturatestata1" type="xs:decimal" use="required" />
+                        <xs:attribute name="denorm_importoresiduo_fatturatestata1" type="xs:decimal" use="required" />
+                      </xs:complexType>
+                    </xs:element>
+                  </xs:sequence>
+                </xs:complexType>
+              </xs:element>
+            </xs:sequence>
+            <xs:attribute name="Textbox70" type="xs:unsignedShort" use="required" />
+            <xs:attribute name="Textbox71" type="xs:decimal" use="required" />
+            <xs:attribute name="Textbox72" type="xs:decimal" use="required" />
+            <xs:attribute name="Textbox73" type="xs:decimal" use="required" />
+          </xs:complexType>
+        </xs:element>
+      </xs:sequence>
+      <xs:attribute name="Name" type="xs:string" use="required" />
+      <xs:attribute name="ReportTitle" type="xs:string" use="required" />
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

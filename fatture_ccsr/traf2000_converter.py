@@ -1,14 +1,15 @@
-"""ask for an input file and an output file and generates the TRAF2000 records from a .csv or .xml"""
+"""download and parse an xml file from CCSR to generate a TRAF2000 record"""
 
+import os
+import sys
 import datetime
-import csv
 import tempfile
-import xml.etree.ElementTree
+import lxml.etree
 import unidecode
 import wx
 
 def download_input_file(parent):
-    """download input file"""
+    """download input file from CCSR SSRS web service"""
     start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
     end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
     input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=XML'
@@ -18,69 +19,48 @@ def download_input_file(parent):
         parent.log_dialog.log_text.AppendText("ERRORE: impossibile scaricare il file di input.\nControllare la connessione ad internet e l'operatività del portale CCSR. Code %d\n" % downloaded_input_file.status_code)
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
         wx.Yield()
-        return
+        return None
 
-    input_file_descriptor, parent.input_file_path = tempfile.mkstemp(suffix='.xml')
-    parent.input_files.append(parent.input_file_path)
+    input_file_descriptor, input_file_path = tempfile.mkstemp(suffix='.xml')
+    parent.input_files.append(input_file_path)
     with open(input_file_descriptor, 'wb') as input_file:
         input_file.write(downloaded_input_file.content)
 
-def import_csv(parent) -> dict:
+    return input_file_path
+
+def validate_xml(xml_tree) -> bool:
+    """validate an xml file with an xml schema (xsd)"""
+    __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
+    if getattr(sys, 'frozen', False):
+        xsd_path = os.path.join(sys._MEIPASS, 'schema.xsd') # pylint: disable=no-member, protected-access
+    else:
+        xsd_path = os.path.join(__location__, 'schema.xsd')
+    xmlschema_doc = lxml.etree.parse(xsd_path)
+    xmlschema = lxml.etree.XMLSchema(xmlschema_doc)
+
+    return xmlschema.validate(xml_tree)
+
+def import_xml(parent, input_file_path) -> dict:
     """Return a dict containing the invoices info"""
     invoices = dict()
-    with open(parent.input_file_path, newline="") as csv_file:
-        csv_reader = csv.reader(csv_file, delimiter=",")
+    if not input_file_path:
+        return None
 
-        for _ in range(4):
-            next(csv_reader)
-
-        for line in csv_reader:
-            if len(line) == 0:
-                break
-            invoice_num = line[1]
-            invoice_type = line[8]
-            amount = line[15]
-            sign = 1
-            if invoice_type == "Nota di credito" and '(' not in amount:
-                sign = -1
-            amount = int(line[15].replace("€", "").replace(",", "").replace(".", "").replace("(", "").replace(")", "")) * sign
-            if invoice_num not in invoices:
-                invoice = {
-                    "numFattura": invoice_num,
-                    "tipoFattura": invoice_type,
-                    "rifFattura": line[4],
-                    "dataFattura": line[2].replace("/", ""),
-                    "ragioneSociale": unidecode.unidecode(line[6] + " " + " ".join(line[5].split()[0:2])),
-                    "posDivide": str(len(line[6]) + 1),
-                    "cf": line[7],
-                    "importoTotale": 0,
-                    "ritenutaAcconto": 0,
-                    "righe": dict()
-                }
-                invoices[invoice_num] = invoice
-
-            if line[14] == "Ritenuta d'acconto":
-                invoices[invoice_num]["ritenutaAcconto"] = amount
-
-            else:
-                invoices[invoice_num]["importoTotale"] += amount
-                invoices[invoice_num]["righe"][line[14]] = amount
-            parent.log_dialog.log_text.AppendText("Importata fattura n. %s\n" % invoice_num)
-            wx.Yield()
-    return invoices
-
-def import_xml(parent) -> dict:
-    """Return a dict containing the invoices info"""
-    invoices = dict()
-
-    tree = xml.etree.ElementTree.parse(parent.input_file_path)
-    root = tree.getroot()
+    xml_tree = lxml.etree.parse(input_file_path)
+    if not validate_xml(xml_tree):
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+        parent.log_dialog.log_text.AppendText("ERRORE: xml non valido secondo lo schema xsd")
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        wx.Yield()
+        return None
+    root = xml_tree.getroot()
 
     for invoice in root.iter('{STAT_FATTURATO_CTERZI}Dettagli'):
         lines = dict()
         invoice_num = invoice.get('protocollo_fatturatestata')
         invoice_type = invoice.get('fat_ndc')
-        total_amount = 0
+        total_amount = int(format(round(float(invoice.get('denorm_importototale_fatturatestata')), 2), '.2f').replace('.', '').replace('-', '')) * -1 if '-' in invoice.get('denorm_importototale_fatturatestata') else 1
+        total_calculated_amount = 0
         ritenuta_acconto = 0
 
         for line in invoice.iter('{STAT_FATTURATO_CTERZI}Dettagli2'):
@@ -93,7 +73,7 @@ def import_xml(parent) -> dict:
                 ritenuta_acconto = amount
             else:
                 lines[desc] = amount
-                total_amount += amount
+                total_calculated_amount += amount
 
         invoice_elem = {
             "numFattura": invoice_num,
@@ -103,7 +83,7 @@ def import_xml(parent) -> dict:
             "ragioneSociale": unidecode.unidecode(invoice.get('cognome_cliente') + ' ' + ' '.join(invoice.get('nome_cliente').split()[0:2])),
             "posDivide": str(len(invoice.get('cognome_cliente')) + 1),
             "cf": invoice.get('cf_piva_cliente'),
-            "importoTotale": total_amount,
+            "importoTotale": total_calculated_amount,
             "ritenutaAcconto": ritenuta_acconto,
             "righe": lines,
         }
@@ -119,9 +99,11 @@ def convert(parent):
 
     parent.log_dialog.log_text.AppendText("Download file input\n")
     wx.Yield()
-    download_input_file(parent)
+    input_xml = download_input_file(parent)
 
-    invoices = import_xml(parent)
+    invoices = import_xml(parent, input_xml)
+    if not invoices:
+        return
 
     if parent.output_traf2000_dialog.ShowModal() == wx.ID_OK:
         output_file_path = parent.output_traf2000_dialog.GetPath()
