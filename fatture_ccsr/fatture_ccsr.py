@@ -2,6 +2,7 @@
 
 import os
 import sys
+import getopt
 import subprocess
 import atexit
 import wx
@@ -20,6 +21,18 @@ CONVERT_ACTION = 20
 class FattureCCSRFrame(wx.Frame):
     """main application frame"""
     def __init__(self, *args, **kwds):
+        self.verbose = False
+        try:
+            opts, _ = getopt.getopt(sys.argv[1:], "v", ["verbose="])
+            for opt, _ in opts:
+                if opt == '-h':
+                    print("fatture_ccsr -v|--verbose")
+                elif opt in ('-v', '--verbose'):
+                    self.verbose = True
+        except getopt.GetoptError:
+            print("fatture_ccsr -v|--verbose")
+            sys.exit(2)
+
         atexit.register(self.exit_handler)
 
         kwds["style"] = kwds.get("style", 0) | wx.DEFAULT_FRAME_STYLE | wx.FULL_REPAINT_ON_RESIZE | wx.TAB_TRAVERSAL

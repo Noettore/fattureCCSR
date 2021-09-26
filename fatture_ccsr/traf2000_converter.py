@@ -35,8 +35,8 @@ def validate_xml(xml_tree) -> bool:
         xsd_path = os.path.join(sys._MEIPASS, 'schema.xsd') # pylint: disable=no-member, protected-access
     else:
         xsd_path = os.path.join(__location__, 'schema.xsd')
-    xmlschema_doc = lxml.etree.parse(xsd_path)
-    xmlschema = lxml.etree.XMLSchema(xmlschema_doc)
+    xmlschema_doc = lxml.etree.parse(xsd_path) # pylint: disable=c-extension-no-member
+    xmlschema = lxml.etree.XMLSchema(xmlschema_doc) # pylint: disable=c-extension-no-member
 
     return xmlschema.validate(xml_tree)
 
@@ -46,20 +46,20 @@ def import_xml(parent, input_file_path) -> dict:
     if not input_file_path:
         return None
 
-    xml_tree = lxml.etree.parse(input_file_path)
+    xml_tree = lxml.etree.parse(input_file_path) # pylint: disable=c-extension-no-member
     if not validate_xml(xml_tree):
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
-        parent.log_dialog.log_text.AppendText("ERRORE: xml non valido secondo lo schema xsd")
+        parent.log_dialog.log_text.AppendText("ERRORE: xml non valido secondo lo schema xsd\n")
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
         wx.Yield()
-        return None
+
     root = xml_tree.getroot()
 
     for invoice in root.iter('{STAT_FATTURATO_CTERZI}Dettagli'):
         lines = dict()
         invoice_num = invoice.get('protocollo_fatturatestata')
         invoice_type = invoice.get('fat_ndc')
-        total_amount = int(format(round(float(invoice.get('denorm_importototale_fatturatestata')), 2), '.2f').replace('.', '').replace('-', '')) * -1 if '-' in invoice.get('denorm_importototale_fatturatestata') else 1
+        # total_amount = int(format(round(float(invoice.get('denorm_importototale_fatturatestata')), 2), '.2f').replace('.', '').replace('-', '')) * -1 if '-' in invoice.get('denorm_importototale_fatturatestata') else 1
         total_calculated_amount = 0
         ritenuta_acconto = 0
 
@@ -74,13 +74,21 @@ def import_xml(parent, input_file_path) -> dict:
             else:
                 lines[desc] = amount
                 total_calculated_amount += amount
+        try:
+            ragione_sociale = unidecode.unidecode(invoice.get('cognome_cliente') + ' ' + ' '.join(invoice.get('nome_cliente').split()[0:2]))
+        except TypeError:
+            parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+            parent.log_dialog.log_text.AppendText("ERRORE: il documento %s ha ragione sociale non valida!\n" % invoice_num)
+            parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+            wx.Yield()
+            continue
 
         invoice_elem = {
             "numFattura": invoice_num,
             "tipoFattura": invoice_type,
             "rifFattura": invoice.get('protocollo_fatturatestata1'),
             "dataFattura": datetime.datetime.fromisoformat(invoice.get('data_fatturatestata')).strftime("%d%m%Y"),
-            "ragioneSociale": unidecode.unidecode(invoice.get('cognome_cliente') + ' ' + ' '.join(invoice.get('nome_cliente').split()[0:2])),
+            "ragioneSociale": ragione_sociale,
             "posDivide": str(len(invoice.get('cognome_cliente')) + 1),
             "cf": invoice.get('cf_piva_cliente'),
             "importoTotale": total_calculated_amount,
@@ -88,8 +96,9 @@ def import_xml(parent, input_file_path) -> dict:
             "righe": lines,
         }
         invoices[invoice_num] = invoice_elem
-        parent.log_dialog.log_text.AppendText("Importata fattura n. %s\n" % invoice_num)
-        wx.Yield()
+        if parent.verbose:
+            parent.log_dialog.log_text.AppendText("Importata fattura n. %s\n" % invoice_num)
+            wx.Yield()
     return invoices
 
 
@@ -254,8 +263,9 @@ def convert(parent):
                 line.append('S')  # TRF-RIF-FATTURA
             line.append('S' + ' '*2 + 'S' + ' '*2)  # TRF-RISERVATO-B + TRF-MASTRO-CF + TRF-MOV-PRIVATO + TRF-SPESE-MEDICHE + TRF-FILLER
             line.append('\n')
-            parent.log_dialog.log_text.AppendText("Creato record #0 per fattura n. %s\n" % invoice["numFattura"])
-            wx.Yield()
+            if parent.verbose:
+                parent.log_dialog.log_text.AppendText("Creato record #0 per fattura n. %s\n" % invoice["numFattura"])
+                wx.Yield()
 
             #RECORD 5 per Tessera Sanitaria
             line.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
@@ -275,8 +285,9 @@ def convert(parent):
             line.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
             line.append(' ' + 'S' + ' '*76)  # TRF-SPESE-FUNEBRI + TRF-A21CO-PAGAM + FILLER + FILLER
             line.append('\n')
-            parent.log_dialog.log_text.AppendText("Creato record #5 per fattura n. %s\n" % invoice["numFattura"])
-            wx.Yield()
+            if parent.verbose:
+                parent.log_dialog.log_text.AppendText("Creato record #5 per fattura n. %s\n" % invoice["numFattura"])
+                wx.Yield()
 
             #RECORD 1 per num. doc. originale
             line.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
@@ -295,14 +306,16 @@ def convert(parent):
             line.append(' '*8)  # TRF-CK-RCHARGE
             line.append('0'*(15-len(invoice["numFattura"])) + invoice["numFattura"])  # TRF-XNUM-DOC-ORI
             line.append(' ' + '00' + ' '*1090)  # TRF-MEM-ESIGIB-IVA + TRF-COD-IDENTIFICATIVO + TRF-ID-IMPORTAZIONE + TRF-XNUM-DOC-ORI-20 + SPAZIO + FILLER
-            parent.log_dialog.log_text.AppendText("Creato record #1 per fattura n. %s\n" % invoice["numFattura"])
-            wx.Yield()
+            if parent.verbose:
+                parent.log_dialog.log_text.AppendText("Creato record #1 per fattura n. %s\n" % invoice["numFattura"])
+                wx.Yield()
 
             line = ''.join(line) + '\n'
 
             traf2000_file.write(line)
-            parent.log_dialog.log_text.AppendText("Convertita fattura n. %s\n" % invoice["numFattura"])
-            wx.Yield()
+            if parent.verbose:
+                parent.log_dialog.log_text.AppendText("Convertita fattura n. %s\n" % invoice["numFattura"])
+                wx.Yield()
 
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.BLACK, font=wx.Font(wx.FontInfo(8).Bold())))
         parent.log_dialog.log_text.AppendText("Conversione terminata.\nTracciato TRAF2000 salvato in %s\n" % output_file_path)

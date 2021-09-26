@@ -1,5 +1,6 @@
 """ask for an input file (.xlsx) and an output file (.pdf) and downloads and unite every invoice"""
 
+import os
 import shutil
 import tempfile
 import openpyxl
@@ -33,12 +34,15 @@ def get_invoices_info(input_file_path: str) -> tuple:
     owner_name = '_'.join(sheet["B1"].value.split()[2:])
 
     for i in range(1, sheet.max_row+1):
-        invoice_id = sheet["I"+str(i)].value
+        row = str(i)
+        invoice_id = sheet["I"+row].value
         if invoice_id is not None and "CCSR" in invoice_id:
             invoice_id = invoice_id.replace("/", "-")
-            invoice_url = sheet["BG"+str(i)].hyperlink.target
+            invoice_type = sheet["AP"+row].value
+            invoice_url = sheet["BG"+row].hyperlink.target
             invoice = {
                 "id": invoice_id,
+                "type": invoice_type,
                 "url": invoice_url,
                 "path": None,
                 "good": None,
@@ -49,7 +53,9 @@ def get_invoices_info(input_file_path: str) -> tuple:
 
 def download_invoices(parent):
     """download invoices from CCSR"""
-    output_file_path = None
+    output_all_file_path = None
+    output_ft_file_path = None
+    output_nc_file_path = None
 
     parent.log_dialog.log_text.AppendText("Download file input\n")
     wx.Yield()
@@ -82,8 +88,9 @@ def download_invoices(parent):
                     invoice["good"] = False
                 else:
                     downloaded_count += 1
-                    parent.log_dialog.log_text.AppendText("%d/%d scaricata fattura %s in %s\n" % (downloaded_count, invoices_count, invoice_id, invoice["path"]))
-                    wx.Yield()
+                    if parent.verbose:
+                        parent.log_dialog.log_text.AppendText("%d/%d scaricata fattura %s in %s\n" % (downloaded_count, invoices_count, invoice_id, invoice["path"]))
+                        wx.Yield()
                     invoice["good"] = True
         else:
             parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
@@ -100,17 +107,34 @@ def download_invoices(parent):
     parent.output_pdf_dialog.SetFilename("fatture_%s.pdf" % invoices_info[0])
 
     if parent.output_pdf_dialog.ShowModal() == wx.ID_OK:
-        output_file_path = parent.output_pdf_dialog.GetPath()
-        merger = PyPDF2.PdfFileMerger()
-        for invoice in invoices.values():
-            if invoice["good"]:
-                merger.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
-        merger.write(output_file_path)
+        output_all_file_path = parent.output_pdf_dialog.GetPath()
+        path, ext = os.path.splitext(output_all_file_path)
+        output_ft_file_path = path+"_ft"+ext
+        output_nc_file_path = path+"_nc"+ext
 
+        merger_ft = PyPDF2.PdfFileMerger()
+        merger_nc = PyPDF2.PdfFileMerger()
+        merger_all = PyPDF2.PdfFileMerger()
+        for invoice_id, invoice in invoices.items():
+            if invoice["good"]:
+                merger_all.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
+                if invoice["type"] == "Fattura":
+                    merger_ft.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
+                elif invoice["type"] == "Nota di credito":
+                    merger_nc.append(PyPDF2.PdfFileReader(open(invoice["path"], "rb")))
+                else:
+                    parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+                    parent.log_dialog.log_text.AppendText("Errore: la fattura %s ha tipo sconosciuto %s\n" % (invoice_id, invoice["type"]))
+                    parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        merger_all.write(output_all_file_path)
+        merger_ft.write(output_ft_file_path)
+        merger_nc.write(output_nc_file_path)
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.BLACK, font=wx.Font(wx.FontInfo(8).Bold())))
-        parent.log_dialog.log_text.AppendText("Il pdf contenente le fatture si trova in %s\n" % output_file_path)
+        parent.log_dialog.log_text.AppendText("Il pdf contenente tutti i documenti si trova in %s\n" % output_all_file_path)
+        parent.log_dialog.log_text.AppendText("Il pdf contenente tutti le fatture si trova in %s\n" % output_ft_file_path)
+        parent.log_dialog.log_text.AppendText("Il pdf contenente tutti le note di credito si trova in %s\n" % output_nc_file_path)
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
         wx.Yield()
         parent.log_dialog.open_file_btn.Enable()
