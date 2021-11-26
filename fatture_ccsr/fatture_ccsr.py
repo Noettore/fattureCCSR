@@ -209,9 +209,14 @@ class LogDialog(wx.Dialog):
 
     def open_pdf(self, _):
         """open a file with the default software"""
-        file_path = self.GetParent().output_pdf_dialog.GetPath()
+        output_all_file_path = self.GetParent().output_pdf_dialog.GetPath()
+        path, ext = os.path.splitext(output_all_file_path)
+        output_ft_file_path = path+"_ft"+ext
+        output_nc_file_path = path+"_nc"+ext
         if sys.platform == "win32":
-            os.startfile(file_path) # pylint: disable=maybe-no-member
+            os.startfile(output_all_file_path) # pylint: disable=maybe-no-member
+            os.startfile(output_ft_file_path) # pylint: disable=maybe-no-member
+            os.startfile(output_nc_file_path) # pylint: disable=maybe-no-member
         else:
             opener = "open" if sys.platform == "darwin" else "xdg-open"
             subprocess.call([opener, file_path])

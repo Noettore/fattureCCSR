@@ -32,9 +32,9 @@ def validate_xml(xml_tree) -> bool:
     """validate an xml file with an xml schema (xsd)"""
     __location__ = os.path.realpath(os.path.join(os.getcwd(), os.path.dirname(__file__)))
     if getattr(sys, 'frozen', False):
-        xsd_path = os.path.join(sys._MEIPASS, 'schema.xsd') # pylint: disable=no-member, protected-access
+        xsd_path = os.path.join(sys._MEIPASS, 'res/schema.xsd') # pylint: disable=no-member, protected-access
     else:
-        xsd_path = os.path.join(__location__, 'schema.xsd')
+        xsd_path = os.path.join(__location__, 'res/schema.xsd')
     xmlschema_doc = lxml.etree.parse(xsd_path) # pylint: disable=c-extension-no-member
     xmlschema = lxml.etree.XMLSchema(xmlschema_doc) # pylint: disable=c-extension-no-member
 
