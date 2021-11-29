@@ -113,6 +113,7 @@ class FattureCCSRFrame(wx.Frame):
         self.end_date_picker.Enable()
         self.login_btn.Hide()
         self.logout_btn.Show()
+        self.login_dlg.username.SetFocus()
         self.main_sizer.Layout()
 
     def disable_on_logout(self):
@@ -219,7 +220,9 @@ class LogDialog(wx.Dialog):
             os.startfile(output_nc_file_path) # pylint: disable=maybe-no-member
         else:
             opener = "open" if sys.platform == "darwin" else "xdg-open"
-            subprocess.call([opener, file_path])
+            subprocess.call([opener, output_all_file_path])
+            subprocess.call([opener, output_ft_file_path])
+            subprocess.call([opener, output_nc_file_path])
 
 class LoginDialog(wx.Dialog):
     """login dialog for basic auth download"""
@@ -232,6 +235,11 @@ class LoginDialog(wx.Dialog):
         self.logged_in = False
 
         main_sizer = wx.BoxSizer(wx.VERTICAL)
+
+        self.error_lbl = wx.StaticText(self, wx.ID_ANY, "", style=wx.ALIGN_CENTER_HORIZONTAL)
+        self.error_lbl.SetForegroundColour((255, 0, 0))
+        self.error_lbl.SetFont(wx.Font(wx.FontInfo(8).Bold()))
+        main_sizer.Add(self.error_lbl, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
         user_sizer = wx.BoxSizer(wx.HORIZONTAL)
         main_sizer.Add(user_sizer, 1, wx.ALL | wx.EXPAND, 2)
@@ -254,7 +262,10 @@ class LoginDialog(wx.Dialog):
         pass_sizer.Add(self.password, 0, wx.ALL | wx.EXPAND, 2)
 
         self.login_btn = wx.Button(self, wx.ID_ANY, "Login")
-        self.login_btn.SetFocus()
+        enter_id = wx.ID_ANY
+        self.Bind(wx.EVT_MENU, self.on_login, id=enter_id)
+        accel_tbl = wx.AcceleratorTable([(wx.ACCEL_NORMAL, wx.WXK_RETURN, enter_id)])
+        self.SetAcceleratorTable(accel_tbl)
         self.login_btn.Bind(wx.EVT_BUTTON, self.on_login)
         main_sizer.Add(self.login_btn, 0, wx.ALIGN_CENTER_HORIZONTAL | wx.ALL, 2)
 
@@ -278,6 +289,10 @@ class LoginDialog(wx.Dialog):
                 self.username.SetValue('')
                 self.password.SetValue('')
                 self.Close()
+            else:
+                self.error_lbl.SetLabel("Errore: credenziali errate")
+        else:
+            self.error_lbl.SetLabel("Errore: credenziali mancanti")
 
 class FattureCCSR(wx.App):
     """main app"""

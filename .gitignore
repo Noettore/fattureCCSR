@@ -25,5 +25,6 @@ __pycache__/*
 *.xml
 *.ipynb
 *.spec
+!fatture_ccsr/fatture_ccsr.spec
 *.wxg
 .venv
