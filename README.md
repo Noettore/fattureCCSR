@@ -6,6 +6,23 @@
 This utility has the only purpose of facilitate the tasks of downloading invoices and generating TeamSystem's TRAF2000 record from a CCSR report.    
 It allows the user to authenticate to the CCSR SQL Server Reporting Services (SSRS) and after specifying a time interval it download the suitable report and lets generate the TRAF2000 record or download and merge all the invoices issued in that period.
 
+## How to run
+Simply by cloning the repo, installing the required packages and executing the main script file:
+```
+$ git clone https://github.com/Noettore/fattureCCSR.git
+$ cd fattureCCSR
+$ pip install -r ./requirements.txt
+$ python ./fatture_ccsr/fatture_ccsr.py
+```
+
+## How to generate a one-file distributable
+Using [pyinstaller](https://www.pyinstaller.org/):
+```
+$ pip install -U pyinstaller
+$ cd fattureCCSR/fatture_ccsr
+$ pyinstaller -clean ./fatture_ccsr.spec
+```
+
 ## Author
 - [**Ettore Dreucci**](https://ettore.dreucci.it)
 
