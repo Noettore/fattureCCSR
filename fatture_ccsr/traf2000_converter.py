@@ -7,16 +7,24 @@ import tempfile
 import lxml.etree
 import unidecode
 import wx
+import requests
 
 def download_input_file(parent):
     """download input file from CCSR SSRS web service"""
     start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
     end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
     input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=XML'
-    downloaded_input_file = parent.session.get(input_file_url)
+    try:
+        downloaded_input_file = parent.session.get(input_file_url)
+    except requests.exceptions.RequestException:
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+        parent.log_dialog.log_text.AppendText("ERRORE: impossibile connettersi al portale CCSR.")
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        wx.Yield()
+        return None
     if downloaded_input_file.status_code != 200:
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
-        parent.log_dialog.log_text.AppendText("ERRORE: impossibile scaricare il file di input.\nControllare la connessione ad internet e l'operatività del portale CCSR. Code %d\n" % downloaded_input_file.status_code)
+        parent.log_dialog.log_text.AppendText("ERRORE: impossibile scaricare il file di input.\nCode %d\n" % downloaded_input_file.status_code)
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
         wx.Yield()
         return None

@@ -5,6 +5,7 @@ import sys
 import getopt
 import subprocess
 import atexit
+from requests.models import RequestField
 import wx
 import wx.adv
 import requests
@@ -284,13 +285,17 @@ class LoginDialog(wx.Dialog):
         if self.username.GetValue() not in ("", None) and self.password.GetValue() not in ("", None):
             session = self.GetParent().session
             session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+self.username.GetValue(), self.password.GetValue())
-            if session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/').status_code == 200:
-                self.logged_in = True
-                self.username.SetValue('')
-                self.password.SetValue('')
-                self.Close()
-            else:
-                self.error_lbl.SetLabel("Errore: credenziali errate")
+            try:
+                login = session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/')
+                if login.status_code == 200:
+                    self.logged_in = True
+                    self.username.SetValue('')
+                    self.password.SetValue('')
+                    self.Close()
+                else:
+                    self.error_lbl.SetLabel("Errore: credenziali errate")
+            except requests.exceptions.RequestException:
+                self.error_lbl.SetLabel("Errore: impossibile connettersi")
         else:
             self.error_lbl.SetLabel("Errore: credenziali mancanti")
 

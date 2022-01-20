@@ -6,13 +6,21 @@ import tempfile
 import openpyxl
 import PyPDF2
 import wx
+import requests
 
 def download_input_file(parent):
     """download input file"""
     start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
     end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
     input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=EXCELOPENXML'
-    downloaded_input_file = parent.session.get(input_file_url)
+    try:
+        downloaded_input_file = parent.session.get(input_file_url)
+    except requests.exceptions.RequestException:
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+        parent.log_dialog.log_text.AppendText("ERRORE: impossibile connettersi al portale CCSR.")
+        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+        wx.Yield()
+        return
     if downloaded_input_file.status_code != 200:
         parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
         parent.log_dialog.log_text.AppendText("ERRORE: impossibile scaricare il file di input.\nControllare la connessione ad internet e l'operatività del portale CCSR. Code %d\n" % downloaded_input_file.status_code)
@@ -73,28 +81,35 @@ def download_invoices(parent):
     downloaded_count = 0
 
     for invoice_id, invoice in invoices.items():
-        resp = parent.session.get(invoice["url"])
-        if resp.status_code == 200:
-            with open(tmp_dir+"/"+invoice_id+".pdf", "wb") as output_file:
-                output_file.write(resp.content)
-                invoice["path"] = output_file.name
-                try:
-                    PyPDF2.PdfFileReader(open(invoice["path"], "rb"))
-                except (PyPDF2.utils.PdfReadError, OSError):
-                    parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
-                    parent.log_dialog.log_text.AppendText("Errore: fattura %s corrotta!\n" % invoice_id)
-                    parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
-                    wx.Yield()
-                    invoice["good"] = False
-                else:
-                    downloaded_count += 1
-                    if parent.verbose:
-                        parent.log_dialog.log_text.AppendText("%d/%d scaricata fattura %s in %s\n" % (downloaded_count, invoices_count, invoice_id, invoice["path"]))
+        try:
+            resp = parent.session.get(invoice["url"])
+            if resp.status_code == 200:
+                with open(tmp_dir+"/"+invoice_id+".pdf", "wb") as output_file:
+                    output_file.write(resp.content)
+                    invoice["path"] = output_file.name
+                    try:
+                        PyPDF2.PdfFileReader(open(invoice["path"], "rb"))
+                    except (PyPDF2.utils.PdfReadError, OSError):
+                        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+                        parent.log_dialog.log_text.AppendText("Errore: fattura %s corrotta!\n" % invoice_id)
+                        parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
                         wx.Yield()
-                    invoice["good"] = True
-        else:
+                        invoice["good"] = False
+                    else:
+                        downloaded_count += 1
+                        if parent.verbose:
+                            parent.log_dialog.log_text.AppendText("%d/%d scaricata fattura %s in %s\n" % (downloaded_count, invoices_count, invoice_id, invoice["path"]))
+                            wx.Yield()
+                        invoice["good"] = True
+            else:
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
+                parent.log_dialog.log_text.AppendText("Errore: impossibile scaricare fattura %s: %d\n" % (invoice_id, resp.status_code))
+                parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
+                wx.Yield()
+                invoice["good"] = False
+        except requests.exceptions.RequestException:
             parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr(wx.RED, font=wx.Font(wx.FontInfo(8).Bold())))
-            parent.log_dialog.log_text.AppendText("Errore: impossibile scaricare fattura %s: %d\n" % (invoice_id, resp.status_code))
+            parent.log_dialog.log_text.AppendText("Errore: impossibile scaricare fattura %s: errore di connessione\n" % invoice_id)
             parent.log_dialog.log_text.SetDefaultStyle(wx.TextAttr())
             wx.Yield()
             invoice["good"] = False
