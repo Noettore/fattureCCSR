@@ -281,8 +281,8 @@ def convert(parent):
             line.append('0'*6 + invoice["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
             total = str(invoice["importoTotale"])
             total = '0'*(13-len(total)) + total + "+"
-            line.append(invoice["dataFattura"] + 'S' + '000' + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + ' '*40)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
-            line.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + ' '*40)*49)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-CONTRATTO
+            line.append(invoice["dataFattura"] + 'S' + '000' + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'S' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+            line.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'S' + ' '*39)*49)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
 
             if invoice["tipoFattura"] == "Nota di credito":
                 line.append('000' + invoice["rifFattura"][4:9])  # TRF-RIF-FATT-NDOC
