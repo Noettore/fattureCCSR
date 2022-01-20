@@ -76,14 +76,14 @@ class FattureCCSRFrame(wx.Frame):
         start_date_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Dal")
         date_sizer.Add(start_date_lbl, 0, wx.ALL, 2)
 
-        self.start_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today().SetDay(1))
+        self.start_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today().SetDay(1), style=wx.adv.DP_DROPDOWN|wx.adv.DP_SHOWCENTURY)
         self.start_date_picker.Enable(False)
         date_sizer.Add(self.start_date_picker, 1, wx.ALL, 2)
 
         end_date_lbl = wx.StaticText(self.panel, wx.ID_ANY, "Al")
         date_sizer.Add(end_date_lbl, 0, wx.ALL, 2)
 
-        self.end_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today())
+        self.end_date_picker = wx.adv.DatePickerCtrl(self.panel, wx.ID_ANY, dt=wx.DateTime.Today(), style=wx.adv.DP_DROPDOWN|wx.adv.DP_SHOWCENTURY)
         self.end_date_picker.Enable(False)
         date_sizer.Add(self.end_date_picker, 1, wx.ALL, 2)
 
