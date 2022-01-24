@@ -20,7 +20,7 @@ Using [pyinstaller](https://www.pyinstaller.org/):
 ```
 $ pip install -U pyinstaller
 $ cd fattureCCSR/fatture_ccsr
-$ pyinstaller -clean ./fatture_ccsr.spec
+$ pyinstaller --clean ./fatture_ccsr.spec
 ```
 
 ## Author

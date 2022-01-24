@@ -70,6 +70,7 @@ def import_xml(parent, input_file_path) -> dict:
         # total_amount = int(format(round(float(invoice.get('denorm_importototale_fatturatestata')), 2), '.2f').replace('.', '').replace('-', '')) * -1 if '-' in invoice.get('denorm_importototale_fatturatestata') else 1
         total_calculated_amount = 0
         ritenuta_acconto = 0
+        bollo = 0
 
         for line in invoice.iter('{STAT_FATTURATO_CTERZI}Dettagli2'):
             desc = line.get('descrizione_fatturariga1')
@@ -79,6 +80,10 @@ def import_xml(parent, input_file_path) -> dict:
             amount = int(format(round(float(line.get('prezzounitario_fatturariga1')), 2), '.2f').replace('.', '').replace('-', '')) * sign
             if desc == "Ritenuta d'acconto":
                 ritenuta_acconto = amount
+            elif desc == "Bollo":
+                lines[desc] = amount
+                bollo = amount
+                total_calculated_amount += amount
             else:
                 lines[desc] = amount
                 total_calculated_amount += amount
@@ -101,6 +106,7 @@ def import_xml(parent, input_file_path) -> dict:
             "cf": invoice.get('cf_piva_cliente'),
             "importoTotale": total_calculated_amount,
             "ritenutaAcconto": ritenuta_acconto,
+            "bollo": bollo,
             "righe": lines,
         }
         invoices[invoice_num] = invoice_elem
@@ -279,19 +285,36 @@ def convert(parent):
             line.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
             line.append(' '*1200)  # TRF-ART21-CONTRATTO
             line.append('0'*6 + invoice["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
-            total = str(invoice["importoTotale"])
+            total = str(invoice["importoTotale"] - invoice["bollo"])
             total = '0'*(13-len(total)) + total + "+"
-            line.append(invoice["dataFattura"] + 'S' + '000' + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'S' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
-            line.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'S' + ' '*39)*49)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+            line.append(invoice["dataFattura"] + 'S' + '308' + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+            if invoice["bollo"] != 0:
+                line.append('0'*6 + invoice["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
+                bollo = str(invoice["bollo"])
+                bollo = '0'*(13-len(bollo)) + bollo + "+"
+                line.append(invoice["dataFattura"] + 'S' + '315' + bollo + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+            else:
+                line.append('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'N' + ' '*39)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER    
+            line.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'N' + ' '*39)*48)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
 
             if invoice["tipoFattura"] == "Nota di credito":
                 line.append('000' + invoice["rifFattura"][4:9])  # TRF-RIF-FATT-NDOC
                 line.append('0'*8)  # TRF-RIF-FATT-DDOC
             else:
                 line.append('0'*16)  # TRF-RIF-FATT-NDOC + TRF-RIF-FATT-DDOC
-            line.append('F' + 'SR' + '2')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
-            line.append((' ' + '  ' + ' ')*49)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
-            line.append(' ' + 'S' + ' '*76)  # TRF-SPESE-FUNEBRI + TRF-A21CO-PAGAM + FILLER + FILLER
+            line.append('F' + 'SR' + ' ')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
+            if invoice["bollo"] != 0:
+                line.append('F' + 'SR' + ' ')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
+            else:
+                line.append(' ' + '  ' + ' ')  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
+            line.append((' ' + '  ' + ' ')*48)  # TRF-A21CO-TIPO + TRF-A21CO-TIPO-SPESA + TRF-A21CO-FLAG-SPESA
+            line.append(' ') # TRF-SPESE-FUNEBRI
+            line.append('S') # TRF-A21CO-PAGAM
+            if invoice["bollo"] != 0:
+                line.append('S')
+            else:
+                line.append(' ')
+            line.append(' '*74)  # TRF-A21CO-PAGAM + FILLER + FILLER
             line.append('\n')
             if parent.verbose:
                 parent.log_dialog.log_text.AppendText("Creato record #5 per fattura n. %s\n" % invoice["numFattura"])
