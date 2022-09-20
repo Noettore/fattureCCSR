@@ -5,7 +5,6 @@ import sys
 import getopt
 import subprocess
 import atexit
-from requests.models import RequestField
 import wx
 import wx.adv
 import requests
@@ -284,7 +283,7 @@ class LoginDialog(wx.Dialog):
         """check credentials and login"""
         if self.username.GetValue() not in ("", None) and self.password.GetValue() not in ("", None):
             session = self.GetParent().session
-            session.auth = requests_ntlm.HttpNtlmAuth("sr\\"+self.username.GetValue(), self.password.GetValue())
+            session.auth = requests_ntlm.HttpNtlmAuth("sanrossore\\"+self.username.GetValue(), self.password.GetValue())
             try:
                 login = session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/')
                 if login.status_code == 200:
