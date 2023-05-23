@@ -1,6 +1,6 @@
 requests_ntlm==1.1.0
 wxPython==4.0.7
-requests==2.24.0
+requests==2.31.0
 openpyxl==3.0.5
 Unidecode==1.1.2
 PyPDF2==1.26.0
