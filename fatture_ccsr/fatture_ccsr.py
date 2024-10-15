@@ -2,13 +2,14 @@
 
 import os
 import sys
-import getopt
+import argparse
 import subprocess
 import atexit
 import wx
 import wx.adv
 import requests
 import requests_ntlm
+import configparser
 
 import downloader
 import traf2000_converter
@@ -23,14 +24,26 @@ class FattureCCSRFrame(wx.Frame):
     def __init__(self, *args, **kwds):
         self.verbose = False
         try:
-            opts, _ = getopt.getopt(sys.argv[1:], "v", ["verbose="])
-            for opt, _ in opts:
-                if opt == '-h':
-                    print("fatture_ccsr -v|--verbose")
-                elif opt in ('-v', '--verbose'):
-                    self.verbose = True
-        except getopt.GetoptError:
-            print("fatture_ccsr -v|--verbose")
+            parser = argparse.ArgumentParser(prog='fatture_ccsr')
+            parser.add_argument('-v', '--verbose', action='store_true')
+            parser.add_argument('-c', '--configfile', action='store', )
+            input_args = parser.parse_args()
+        except (argparse.ArgumentError, argparse.ArgumentTypeError) as e:
+            print(f"Error in parsing arguments: {e}")
+            sys.exit(2)
+        
+        if input_args.verbose:
+            self.verbose = True
+        if input_args.configfile:
+            config_file = input_args.configfile
+        else:
+            config_file = "./config.ini"
+        
+        try:
+            config = configparser.ConfigParser()
+            config.read_file(open(config_file))
+        except Exception as e:
+            print(f"Error in reading the config file: {e}")
             sys.exit(2)
 
         atexit.register(self.exit_handler)

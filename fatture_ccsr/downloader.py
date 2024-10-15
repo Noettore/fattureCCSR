@@ -12,7 +12,7 @@ def download_input_file(parent):
     """download input file"""
     start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
     end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
-    input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=EXCELOPENXML'
+    input_file_url = parent.config['REPORT_SERVER']['URL']+'/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=EXCELOPENXML'
     try:
         downloaded_input_file = parent.session.get(input_file_url)
     except requests.exceptions.RequestException:

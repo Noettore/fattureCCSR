@@ -28,3 +28,4 @@ __pycache__/*
 !fatture_ccsr/fatture_ccsr.spec
 *.wxg
 .venv
+*/config.ini

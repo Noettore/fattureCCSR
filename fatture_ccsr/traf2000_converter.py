@@ -13,7 +13,7 @@ def download_input_file(parent):
     """download input file from CCSR SSRS web service"""
     start_date = parent.start_date_picker.GetValue().Format("%d/%m/%Y")
     end_date = parent.end_date_picker.GetValue().Format("%d/%m/%Y")
-    input_file_url = 'https://report.casadicurasanrossore.it:8443/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=XML'
+    input_file_url = parent.config['REPORT_SERVER']['URL']+'/reportserver?/STAT_FATTURATO_CTERZI&dataI='+start_date+'&dataF='+end_date+'&rs:Format=XML'
     try:
         downloaded_input_file = parent.session.get(input_file_url)
     except requests.exceptions.RequestException:
@@ -138,6 +138,12 @@ def convert(parent):
         return
 
     with open(output_file_path, "w") as traf2000_file:
+        trf_ditta = parent.config['TRAF2000']['TRF-DITTA']
+        trf_aliq = parent.config['TRAF2000']['TRF-ALIQ']
+        trf_aliq_bollo = parent.config['TRAF2000']['TRF-ALIQ-BOLLO']
+        trf_conto_ric = parent.config['TRAF2000']['TRF-CONTO-RIC']
+        trf_conto_ric_bollo = parent.config['TRAF2000']['TRF-CONTO-RIC-BOLLO']
+
         parent.log_dialog.nc_text.AppendText("Note di credito:\n")
         wx.Yield()
 
@@ -162,7 +168,7 @@ def convert(parent):
                 wx.Yield()
                 continue
 
-            line = ["04103", "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
+            line = [trf_ditta, "3", "0", "00000"]  # TRF-DITTA + TRF-VERSIONE + TRF-TARC + TRF-COD-CLIFOR
             line.append(invoice["ragioneSociale"][:32]+' '*(32-len(invoice["ragioneSociale"])))  # TRF-RASO
             line.append(' '*30)  # TRF-IND
             line.append('00000')  # TRF-CAP
@@ -209,9 +215,9 @@ def convert(parent):
                     imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
                 line.append(imponibile)  # TRF-IMPONIB
                 if desc != "Bollo":
-                    line.append('308')  # TRF-ALIQ
+                    line.append(trf_aliq)  # TRF-ALIQ
                 else:
-                    line.append('315')  # TRF-ALIQ
+                    line.append(trf_aliq_bollo)  # TRF-ALIQ
                 line.append('0'*16)  # TRF-ALIQ-AGRICOLA + TRF-IVA11 + TRF-IMPOSTA
 
             for _ in range(8-count):
@@ -235,9 +241,9 @@ def convert(parent):
                 else:
                     imponibile = '0'*(11-len(imponibile)) + imponibile + "+"
                 if desc != "Bollo":
-                    line.append('4004300')  # TRF-CONTO-RIC
+                    line.append(trf_conto_ric)  # TRF-CONTO-RIC
                 else:
-                    line.append('4004500')  # TRF-CONTO-RIC
+                    line.append(trf_conto_ric_bollo)  # TRF-CONTO-RIC
                 line.append(imponibile)  # TRF-IMP-RIC
 
             for _ in range(8-count):
@@ -282,17 +288,17 @@ def convert(parent):
                 wx.Yield()
 
             #RECORD 5 per Tessera Sanitaria
-            line.append('04103' + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
+            line.append(trf_ditta + '3' + '5')  # TRF5-DITTA + TRF5-VERSIONE + TRF5-TARC
             line.append(' '*1200)  # TRF-ART21-CONTRATTO
             line.append('0'*6 + invoice["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
             total = str(invoice["importoTotale"] - invoice["bollo"])
             total = '0'*(13-len(total)) + total + "+"
-            line.append(invoice["dataFattura"] + 'S' + '308' + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+            line.append(invoice["dataFattura"] + 'S' + trf_aliq + total + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
             if invoice["bollo"] != 0:
                 line.append('0'*6 + invoice["cf"])  # TRF-A21CO-ANAG + # TRF-A21CO-COFI
                 bollo = str(invoice["bollo"])
                 bollo = '0'*(13-len(bollo)) + bollo + "+"
-                line.append(invoice["dataFattura"] + 'S' + '315' + bollo + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
+                line.append(invoice["dataFattura"] + 'S' + trf_aliq_bollo + bollo + '0'*14 + '0' + invoice["numFattura"][4:9] + '00' + 'N' + ' '*39)  # TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
             else:
                 line.append('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'N' + ' '*39)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER    
             line.append(('0'*6 + ' '*16 + '0'*8 + ' ' + '000' + '0'*14 + '0'*14 + '0'*8 + 'N' + ' '*39)*48)  # TRF-A21CO-ANAG + TRF-A21CO-COFI + TRF-A21CO-DATA + TRF-A21CO-FLAG + TRF-A21CO-ALQ + TRF-A21CO-IMPORTO + TRF-A21CO-IMPOSTA + TRF-A21CO-NDOC + TRF-A21CO-FLAG-OPPOS + FILLER
@@ -321,7 +327,7 @@ def convert(parent):
                 wx.Yield()
 
             #RECORD 1 per num. doc. originale
-            line.append('04103' + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
+            line.append(trf_ditta + '3' + '1')  # TRF1-DITTA + TRF1-VERSIONE + TRF1-TARC
             line.append('0'*7 + ' '*3 + '0'*14)  # TRF-NUM-AUTOFATT + TRF-SERIE-AUTOFATT + TRF-COD-VAL + TRF-TOTVAL
             line.append((' '*8 + '0'*24 + ' ' + '0'*36 + ' '*2 + '0'*9 + ' '*5)*20)  # TRF-NOMENCLATURA + TRF-IMP-LIRE + TRF-IMP-VAL + TRF-NATURA + TRF-MASSA + TRF-UN-SUPPL + TRF-VAL-STAT + TRF-REGIME + TRF-TRASPORTO + TRF-PAESE-PROV + TRF-PAESE-ORIG + TRF-PAESE-DEST + TRF-PROV-DEST + TRF-PROV-ORIG + TRF-SEGNO-RET
             line.append(' ' + '0'*6 + ' '*173)  # TRF-INTRA-TIPO + TRF-MESE-ANNO-RIF + SPAZIO
