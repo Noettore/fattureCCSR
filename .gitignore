@@ -29,3 +29,4 @@ __pycache__/*
 *.wxg
 .venv
 config.ini
+certificates/*
