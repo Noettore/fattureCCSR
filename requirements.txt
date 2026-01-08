@@ -1,8 +1,21 @@
-requests_ntlm==1.1.0
-wxPython==4.0.7
-requests==2.24.0
-openpyxl==3.0.5
-Unidecode==1.1.2
-PyPDF2==1.26.0
-numpy<1.24
-lxml
+# HTTP requests and NTLM authentication
+requests>=2.28.0
+requests-ntlm>=1.1.0
+
+# GUI framework
+wxPython>=4.1.0
+
+# Excel file parsing
+openpyxl>=3.7.0
+
+# PDF manipulation
+PyPDF2>=2.0.0
+
+# String utilities
+Unidecode>=1.2.0
+
+# XML parsing and validation
+lxml>=4.6.0
+
+# Numerical operations
+numpy>=1.20.0

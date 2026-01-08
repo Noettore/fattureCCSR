@@ -40,8 +40,8 @@ class FattureCCSRFrame(wx.Frame):
             config_file = "./config.ini"
         
         try:
-            config = configparser.ConfigParser()
-            config.read_file(open(config_file))
+            self.config = configparser.ConfigParser()
+            self.config.read_file(open(config_file))
         except Exception as e:
             print(f"Error in reading the config file: {e}")
             sys.exit(2)
@@ -56,7 +56,9 @@ class FattureCCSRFrame(wx.Frame):
 
         self.input_files = list()
         self.log_dialog = None
+        
         self.session = requests.Session()
+        self.session.verify = self.config['REPORT_SERVER'].get('CA_BUNDLE', True)
 
         self.panel = wx.Panel(self, wx.ID_ANY, style=wx.BORDER_NONE | wx.FULL_REPAINT_ON_RESIZE | wx.TAB_TRAVERSAL)
         self.main_sizer = wx.BoxSizer(wx.VERTICAL)
@@ -298,7 +300,7 @@ class LoginDialog(wx.Dialog):
             session = self.GetParent().session
             session.auth = requests_ntlm.HttpNtlmAuth("sanrossore\\"+self.username.GetValue(), self.password.GetValue())
             try:
-                login = session.get('https://report.casadicurasanrossore.it:8443/Reports/browse/')
+                login = session.get(self.GetParent().config['REPORT_SERVER']['URL']+'/Reports/browse/')
                 if login.status_code == 200:
                     self.logged_in = True
                     self.username.SetValue('')
